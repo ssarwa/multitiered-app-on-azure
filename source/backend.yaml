@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: cncfazure.azurecr.io/conexp/api:latest
+        ports:
+        - containerPort: 80
+        imagePullPolicy: Always
+        env:
+        - name: ConnectionStrings__DBConnectionString
+          value: "Server=expensedbserver.mysql.database.azure.com; Port=3306; Database=conexpapi; Uid=expenseadmin@expensedbserver; Pwd=Azure1234!@#$; SslMode=Preferred;"
+      imagePullSecrets:
+      - name: regcred
+      nodeSelector: 
+        "beta.kubernetes.io/os": linux
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-svc
+spec:
+  selector:
+    app: backend
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 80

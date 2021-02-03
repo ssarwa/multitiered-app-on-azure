@@ -1,0 +1,14 @@
+apiVersion: cert-manager.io/v1alpha2
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: ssarwa@microsoft.com
+    privateKeySecretRef:
+      name: letsencrypt-secret
+    solvers:
+      - http01:
+          ingress:
+            class: azure/application-gateway
