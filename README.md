@@ -38,6 +38,7 @@ domainName='sarwascloud.com'
 MYSQL='expensedbserver'
 adminUser='expenseadmin'
 mysqlPwd='Azure1234!@#$'
+KeyVault='expensesvault'
 ```
 
 #### Login to Azure
@@ -134,12 +135,6 @@ kubectl apply -f yml/clusterissuer.yaml
 kubectl apply -f yml/Test-App-Ingress.yaml
 ```
 
-#### Create MySQL managed service (basic sku)
-
-```bash
-az mysql server create --resource-group $RG --name MYSQL --location $LOCATION --admin-user $adminUser --admin-password $mysqlPwd --sku-name B_Gen5_2
-```
-
 #### Install KEDA runtime
 
 ```bash
@@ -149,3 +144,75 @@ kubectl create namespace keda
 helm install keda kedacore/keda --namespace keda
 ```
 
+#### Create MySQL managed service (basic sku) and add Kubernetes public ip in it firewall rules
+
+```bash
+az mysql server create --resource-group $RG --name $MYSQL --location $LOCATION --admin-user $adminUser --admin-password $mysqlPwd --sku-name B_Gen5_2
+az mysql server firewall-rule create --name allowip --resource-group $RG --server-name $MYSQL --start-ip-address <Kubernetes Public IP> --end-ip-address <Kubernetes Public IP>
+```
+
+#### Login to MySQL (you may need to add you ip to firewall rules as well)
+
+```bash
+mysql -h expensedbserver.mysql.database.azure.com -u expenseadmin@expensedbserver -p
+show databases;
+
+CREATE DATABASE conexpweb;
+
+CREATE DATABASE conexpapi;
+USE conexpapi;
+
+CREATE TABLE CostCenters(
+   CostCenterId int(11)  NOT NULL,
+   SubmitterEmail text NOT NULL,
+   ApproverEmail text NOT NULL,
+   CostCenterName text NOT NULL,
+   PRIMARY KEY ( CostCenterId )
+);
+
+INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (1, 'user1@mycompany.com', 'user1@mycompany.com','123E42');
+INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (2, 'user2@mycompany.com', 'user2@mycompany.com','456C14');
+INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (3, 'user3@mycompany.com', 'user3@mycompany.com','456C14');
+
+USE conexpapi;
+GRANT ALL PRIVILEGES ON *.* TO 'expenseadmin'@'%';
+
+USE conexpweb;
+GRANT ALL PRIVILEGES ON *.* TO 'expenseadmin'@'%';
+```
+
+#### Create Azure Keyvault for saving secrets
+
+```bash
+az keyvault create --location $LOCATION --name $KeyVault --resource-group $RG
+```
+
+#### Add corresponding secrets to the create KeyVault
+
+1. MySQL Connection strings (choose ADO.NET) - both for API and Web
+   1. mysqlconnapi
+   2. mysqlconnweb
+2. Storage Connection strings
+   1. storageconn
+3. Sendgrid Key
+   1. sendgridapi
+
+#### Prepare Github Actions
+
+```bash
+# Get Resource Group ID
+groupId=$(az group show --name $RG --query id -o tsv)
+
+# Create Service Principal and save the output
+az ad sp create-for-rbac --scope $groupId --role Contributor --sdk-auth
+
+# Get ACR ID
+registryId=$(az acr show --name $ACR --query id --output tsv)
+
+# Assign ACR Push role
+az role assignment create \
+  --assignee <ClientId> \
+  --scope $registryId \
+  --role AcrPush
+
+```
