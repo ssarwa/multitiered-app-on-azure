@@ -22,14 +22,14 @@ jobs:
             password: ${{ secrets.REGISTRY_PASSWORD }}
         - run: |
             cd source/Contoso.Expenses.API
-            docker build -t ${{ secrets.REGISTRY_LOGIN_SERVER }}//conexp/api:${{ github.sha }} .
-            docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}//conexp/api:${{ github.sha }}
+            docker build . -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/api:${{ github.sha }}
+            docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/api:${{ github.sha }}
 
             cd ..
-            docker build -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/web:${{ github.sha }} -f Contoso.Expenses.Web/Dockerfile .
+            docker build . -f Contoso.Expenses.Web/Dockerfile -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/web:${{ github.sha }}
             docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/web:${{ github.sha }}
 
-            docker build -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/emaildispatcher:${{ github.sha }} -f Contoso.Expenses.OpenFaaS/Dockerfile .
+            docker build . -f Contoso.Expenses.KedaFunctions/Dockerfile -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/emaildispatcher:${{ github.sha }}
             docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/emaildispatcher:${{ github.sha }}
 
         
