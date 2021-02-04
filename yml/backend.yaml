@@ -16,13 +16,13 @@ spec:
     spec:
       containers:
       - name: backend
-        image: APIIMAGE
+        image: __APIIMAGE__
         ports:
         - containerPort: 80
         imagePullPolicy: Always
         env:
         - name: ConnectionStrings__DBConnectionString
-          value: "DBAPICONN"
+          value: "__DBAPICONN__"
       imagePullSecrets:
       - name: regcred
       nodeSelector: 

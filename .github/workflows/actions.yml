@@ -22,16 +22,16 @@ jobs:
             keyvault: "expensesvault"
             secrets: 'mysqlconnapi, mysqlconnweb, sendgridapi, storageconn'
           id: expGetSecretAction
-          
-        - name: 'Build and push image'
+
+        - name: 'Docker Login to ACR'
           uses: azure/docker-login@v1
           with:
             login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
             username: ${{ secrets.REGISTRY_USERNAME }}
             password: ${{ secrets.REGISTRY_PASSWORD }}
 
-        - run: |
-            
+        - name: 'Build and push image'
+          run: |
             cd source/Contoso.Expenses.API
             docker build . -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/api:${{ github.sha }}
             docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/api:${{ github.sha }}
@@ -43,4 +43,8 @@ jobs:
             docker build . -f Contoso.Expenses.KedaFunctions/Dockerfile -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/emaildispatcher:${{ github.sha }}
             docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/emaildispatcher:${{ github.sha }}
 
-        
+            cd ..
+            sed -i "s/__APIIMAGE__/${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/api:${{ github.sha }}/g" yml/backend.yaml
+            sed -i "s/__DBAPICONN__/${{ build-and-deploy.expGetSecretAction.outputs.mysqlconnapi }}/g" yml/backend.yaml
+            
+            cat yml/backend.yaml
