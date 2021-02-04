@@ -8,9 +8,39 @@ jobs:
         # checkout the repo
         - name: 'Checkout GitHub Action'
           uses: actions/checkout@main
+          
+        - name: 'Login via Azure CLI'
+          uses: azure/login@v1
+          with:
+            creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+        - name: 'Get Secrets for Azure Keyvault'
+          uses: Azure/get-keyvault-secrets@v1.0
+          env:
+            ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
+          with:
+            keyvault: "expensesvault"
+            secrets: 'mysqlconnapi, mysqlconnweb, sendgridapi, storageconn'
+          id: expGetSecretAction
+
+        - name: 'Docker Login to ACR'
+          uses: azure/docker-login@v1
+          with:
+            login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
+            username: ${{ secrets.REGISTRY_USERNAME }}
+            password: ${{ secrets.REGISTRY_PASSWORD }}
 
         - name: 'Build and push image'
           run: |
+            
+            sendgridbase64=$(echo  '${{ steps.expGetSecretAction.outputs.sendgridapi }}' | base64)
+            storagebase64=$(echo  '${{ steps.expGetSecretAction.outputs.storageconn }}' | base64)
             sed -i 's/__DBAPICONN__/${{ steps.expGetSecretAction.outputs.mysqlconnapi }}/g' yml/backend.yaml
+            sed -i 's/__DBWEBCONN__/${{ steps.expGetSecretAction.outputs.mysqlconnweb }}/g' yml/frontend.yaml
+            sed -i 's/__STORAGECONN__/${{ steps.expGetSecretAction.outputs.storageconn }}/g' yml/frontend.yaml
+            sed -i 's/__SENDGRID__/$sendgridbase64/g' yml/function.yaml
+            sed -i 's/__STORAGECONN64__/$storagebase64/g' yml/function.yaml
             
             cat yml/backend.yaml
+            cat yml/frontend.yaml
+            cat yml/function.yaml

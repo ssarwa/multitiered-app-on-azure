@@ -1,5 +1,5 @@
 data:
-  AzureWebJobsStorage: __STORAGECONN__
+  AzureWebJobsStorage: __STORAGECONN64__
   FUNCTIONS_WORKER_RUNTIME: ZG90bmV0
   SENDGRID_API_KEY: __SENDGRID__
 apiVersion: v1
