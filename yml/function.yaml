@@ -1,7 +1,7 @@
 data:
-  AzureWebJobsStorage: RGVmYXVsdEVuZHBvaW50c1Byb3RvY29sPWh0dHBzO0FjY291bnROYW1lPWV4cGVuc2VzcXVldWU7QWNjb3VudEtleT1RN3BUeGc0NElCOHJ2WTRVRGlkOFZPSGdjcVNUZHFTNzAzenEvVFdXdkNLZkdaUDdxWjQwQkhHR2lTbWJoZ3JKSHI2UzUrSVJIRjdBeG82Y3hCRTB1dz09O0VuZHBvaW50U3VmZml4PWNvcmUud2luZG93cy5uZXQ=
+  AzureWebJobsStorage: __STORAGECONN__
   FUNCTIONS_WORKER_RUNTIME: ZG90bmV0
-  SENDGRID_API_KEY: U0cudklIeldFckpRcmFvaXV5NmhYWDN0QS5nZjlfTm12X1lLRDdNZERObDM2bnMyMi03ZlJ3eTVBU2hmVWtXYW11MlRn
+  SENDGRID_API_KEY: __SENDGRID__
 apiVersion: v1
 kind: Secret
 metadata:
@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: expenseemailsender
-        image: cncfazure.azurecr.io/conexp/emaildispatcher:latest
+        image: __FUNCIMAGE__
         env:
         - name: AzureFunctionsJobHost__functions__0
           value: ExpenseEmailSender

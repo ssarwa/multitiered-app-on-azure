@@ -16,15 +16,15 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: cncfazure.azurecr.io/conexp/web:latest
+        image: __WEBIMAGE__
         ports:
         - containerPort: 80  
         imagePullPolicy: Always
         env:
         - name: ConnectionStrings__DBConnectionString
-          value: "Server=expensedbserver.mysql.database.azure.com; Port=3306; Database=conexpweb; Uid=expenseadmin@expensedbserver; Pwd=Azure1234!@#$; SslMode=Preferred;"
+          value: "__DBWEBCONN__"
         - name: ConnectionStrings__StorageConnectionString
-          value: "DefaultEndpointsProtocol=https;AccountName=expensesqueue;AccountKey=Q7pTxg44IB8rvY4UDid8VOHgcqSTdqS703zq/TWWvCKfGZP7qZ40BHGGiSmbhgrJHr6S5+IRHF7Axo6cxBE0uw==;EndpointSuffix=core.windows.net"
+          value: "__STORAGECONN__"
         - name: ConfigValues__CostCenterAPIUrl
           value: "http://backend-svc.default.svc.cluster.local:80"
       imagePullSecrets:

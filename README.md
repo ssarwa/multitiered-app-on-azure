@@ -215,4 +215,6 @@ az role assignment create \
   --scope $registryId \
   --role AcrPush
 
+# Get read access to KeyVault
+az keyvault set-policy -n $KeyVault --secret-permissions get list --spn <ClientId>
 ```

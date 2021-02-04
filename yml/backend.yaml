@@ -16,13 +16,13 @@ spec:
     spec:
       containers:
       - name: backend
-        image: cncfazure.azurecr.io/conexp/api:latest
+        image: APIIMAGE
         ports:
         - containerPort: 80
         imagePullPolicy: Always
         env:
         - name: ConnectionStrings__DBConnectionString
-          value: "Server=expensedbserver.mysql.database.azure.com; Port=3306; Database=conexpapi; Uid=expenseadmin@expensedbserver; Pwd=Azure1234!@#$; SslMode=Preferred;"
+          value: "DBAPICONN"
       imagePullSecrets:
       - name: regcred
       nodeSelector: 

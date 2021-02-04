@@ -20,7 +20,16 @@ jobs:
             login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
             username: ${{ secrets.REGISTRY_USERNAME }}
             password: ${{ secrets.REGISTRY_PASSWORD }}
+
+        - name: 'Get Secrets for Azure Keyvault'
+          uses: Azure/get-keyvault-secrets@v1.0
+          with:
+            keyvault: "expensesvault"
+            secrets: 'mysqlconnapi, mysqlconnweb, sendgridapi, storageconn'
+          id: expGetSecretAction
+
         - run: |
+            
             cd source/Contoso.Expenses.API
             docker build . -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/api:${{ github.sha }}
             docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/api:${{ github.sha }}
