@@ -45,6 +45,6 @@ jobs:
 
             cd ..
             sed -i "s/__APIIMAGE__/${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/api:${{ github.sha }}/g" yml/backend.yaml
-            sed -i "s/__DBAPICONN__/${{ build-and-deploy.expGetSecretAction.outputs.mysqlconnapi }}/g" yml/backend.yaml
+            sed -i "s/__DBAPICONN__/${{ steps.expGetSecretAction.outputs.mysqlconnapi }}/g" yml/backend.yaml
             
             cat yml/backend.yaml
