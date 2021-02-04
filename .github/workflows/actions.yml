@@ -32,15 +32,15 @@ jobs:
 
         - name: 'Build and push image'
           run: |
-            
-            sendgridbase64=$(echo  '${{ steps.expGetSecretAction.outputs.sendgridapi }}' | base64)
-            storagebase64=$(echo  '${{ steps.expGetSecretAction.outputs.storageconn }}' | base64)
-            sed -i 's/__DBAPICONN__/${{ steps.expGetSecretAction.outputs.mysqlconnapi }}/g' yml/backend.yaml
-            sed -i 's/__DBWEBCONN__/${{ steps.expGetSecretAction.outputs.mysqlconnweb }}/g' yml/frontend.yaml
-            sed -i 's/__STORAGECONN__/${{ steps.expGetSecretAction.outputs.storageconn }}/g' yml/frontend.yaml
-            sed -i 's/__SENDGRID__/$sendgridbase64/g' yml/function.yaml
-            sed -i 's/__STORAGECONN64__/$storagebase64/g' yml/function.yaml
-            
-            cat yml/backend.yaml
-            cat yml/frontend.yaml
-            cat yml/function.yaml
+            cd source/Contoso.Expenses.API
+            docker build . -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/api:${{ github.sha }}
+            docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/api:${{ github.sha }}
+
+            cd ..
+            docker build . -f Contoso.Expenses.Web/Dockerfile -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/web:${{ github.sha }}
+            docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/web:${{ github.sha }}
+
+            docker build . -f Contoso.Expenses.KedaFunctions/Dockerfile -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/emaildispatcher:${{ github.sha }}
+            docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/emaildispatcher:${{ github.sha }}
+
+            cd ..

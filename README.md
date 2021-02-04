@@ -65,7 +65,7 @@ az acr create --resource-group $RG --name $ACR --sku Standard
 objectId=$(az ad group list --filter "displayname eq 'fta-cncf-azure'" --query '[].objectId' -o tsv)
 ```
 
-#### Create an AKS-managed Azure AD cluster with AGIC addon
+#### Create an AKS-managed Azure AD cluster with AGIC addon and AAD Pod Identity
 
 ```bash
 az aks create \
@@ -76,6 +76,7 @@ az aks create \
     -a ingress-appgw --appgw-name $AppGtwy \
     --appgw-subnet-prefix "10.2.0.0/16" \
     --enable-aad \
+    --enable-pod-identity \
     --aad-admin-group-object-ids $objectId \
     --generate-ssh-keys \
     --attach-acr $ACR

@@ -7,6 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
 using System;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
 
 namespace Contoso.Expenses.API
 {
@@ -24,7 +26,11 @@ namespace Contoso.Expenses.API
         {
             services.AddControllers();
 
-            string connectionString = Configuration["ConnectionStrings:DBConnectionString"];
+            string keyVaultName = Configuration["KeyVaultName"];
+            var kvUri = "https://" + keyVaultName + ".vault.azure.net";
+            var client = new SecretClient(new Uri(kvUri), new DefaultAzureCredential());
+            var secretDbConn = client.GetSecret("mysqlconnapi");
+            string connectionString = secretDbConn.Value.Value;
             services.AddDbContext<DatabaseContext>(options => options.UseMySql(connectionString));
 
             // Register the Swagger generator, defining 1 or more Swagger documents

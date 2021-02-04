@@ -4,6 +4,7 @@ metadata:
   name: backend-deployment
   labels:
     app: backend
+    aadpodidbinding: exppoidentity
 spec:
   replicas: 1
   selector:
@@ -13,16 +14,17 @@ spec:
     metadata:
       labels:
         app: backend
+        aadpodidbinding: exppoidentity
     spec:
       containers:
       - name: backend
-        image: __APIIMAGE__
+        image: cncfazure.azurecr.io/conexp/api:latest
         ports:
         - containerPort: 80
         imagePullPolicy: Always
         env:
-        - name: ConnectionStrings__DBConnectionString
-          value: "__DBAPICONN__"
+        - name: KeyVaultName
+          value: "expensesvault"
       imagePullSecrets:
       - name: regcred
       nodeSelector: 

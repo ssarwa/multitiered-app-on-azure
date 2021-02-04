@@ -9,6 +9,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
+using System;
 
 namespace Contoso.Expenses.Web
 {
@@ -50,10 +53,15 @@ namespace Contoso.Expenses.Web
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_3_0);
 
-            // see https://docs.microsoft.com/en-us/aspnet/core/security/app-secrets?view=aspnetcore-2.2
-            string connectionString = Configuration["ConnectionStrings:DBConnectionString"];
+            string keyVaultName = Configuration["KeyVaultName"];
+            var kvUri = "https://" + keyVaultName + ".vault.azure.net";
+            var client = new SecretClient(new Uri(kvUri), new DefaultAzureCredential());
+            var secretDbConn = client.GetSecret("mysqlconnweb");
+            var secretStorageConn = client.GetSecret("mysqlconnweb");
+            string connectionDBString = secretDbConn.Value.Value;
+            string connectionStorageString = secretStorageConn.Value.Value;
             services.AddDbContext<ContosoExpensesWebContext>(options =>
-                    options.UseMySql(connectionString));
+                    options.UseMySql(connectionDBString));
 
             services.Configure<ConfigValues>(Configuration.GetSection("ConfigValues"));
 
@@ -61,7 +69,7 @@ namespace Contoso.Expenses.Web
             {
                 return new QueueInfo()
                 {
-                    ConnectionString = Configuration["ConnectionStrings:StorageConnectionString"],
+                    ConnectionString = connectionStorageString,
                     QueueName = Configuration["QueueName"]
                 };
             });
