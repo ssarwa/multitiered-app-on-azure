@@ -4,6 +4,7 @@ metadata:
   name: frontend-deployment
   labels:
     app: conexp-frontend
+    aadpodidbinding: exppoidentity
 spec:
   replicas: 1
   selector:
@@ -13,6 +14,7 @@ spec:
     metadata:
       labels:
         app: conexp-frontend
+        aadpodidbinding: exppoidentity
     spec:
       containers:
       - name: frontend
@@ -21,10 +23,8 @@ spec:
         - containerPort: 80  
         imagePullPolicy: Always
         env:
-        - name: ConnectionStrings__DBConnectionString
-          value: "__DBWEBCONN__"
-        - name: ConnectionStrings__StorageConnectionString
-          value: "__STORAGECONN__"
+        - name: KeyVaultName
+          value: "expensesvault"
         - name: ConfigValues__CostCenterAPIUrl
           value: "http://backend-svc.default.svc.cluster.local:80"
       imagePullSecrets:

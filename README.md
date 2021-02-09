@@ -134,6 +134,10 @@ kubectl apply -f yml/clusterissuer.yaml
 
 # Test a sample application. The below command will deploy a Pod, Service and Ingress resource. Application Gateway will be configured with the associated rules.
 kubectl apply -f yml/Test-App-Ingress.yaml
+
+# Clean up after successfully verifying AGIC
+kubectl delete -f yml/Test-App-Ingress.yaml
+
 ```
 
 #### Install KEDA runtime
@@ -218,4 +222,15 @@ az role assignment create \
 
 # Get read access to KeyVault
 az keyvault set-policy -n $KeyVault --secret-permissions get list --spn <ClientId>
+
+# Install CSI Provider for Azure Keyvault
+
+helm repo add csi-secrets-store-provider-azure https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/charts
+helm install csi csi-secrets-store-provider-azure/csi-secrets-store-provider-azure
+
+# Create CSI Provider Class
+
+kubectl apply -f yml/csi-sync.yaml
+
+# Now you are ready to trigger the build and release from Github Actions using the provided Actions file.
 ```

@@ -1,0 +1,37 @@
+apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
+kind: SecretProviderClass
+metadata:
+  name: azure-sync
+spec:
+  provider: azure
+  secretObjects:
+  - secretName: expenseemailsender
+    type: Opaque
+    data:
+    - objectName: AzureWebJobsStorage
+      key: AzureWebJobsStorage
+    - objectName: SENDGRID_API_KEY
+      key: SENDGRID_API_KEY
+    - objectName: FUNCTIONS_WORKER_RUNTIME
+      key: FUNCTIONS_WORKER_RUNTIME
+  parameters:
+    usePodIdentity: "true"
+    userAssignedIdentityID: ""
+    keyvaultName: "expensesvault"
+    objects: |
+      array:
+        - |
+          objectName: storageconn
+          objectType: secret
+          objectAlias: AzureWebJobsStorage
+        - |
+          objectName: funcruntime
+          objectType: secret
+          objectAlias: FUNCTIONS_WORKER_RUNTIME
+        - |
+          objectName: sendgridapi
+          objectType: secret
+          objectAlias: SENDGRID_API_KEY
+    tenantId: "72f988bf-86f1-41af-91ab-2d7cd011db47"
+    resourceGroup: "CNCF-Azure-RG"
+    subscriptionId: "12bb4e89-4f7a-41e0-a38f-b22f079248b4"

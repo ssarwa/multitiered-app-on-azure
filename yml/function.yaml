@@ -1,13 +1,3 @@
-data:
-  AzureWebJobsStorage: __STORAGECONN64__
-  FUNCTIONS_WORKER_RUNTIME: ZG90bmV0
-  SENDGRID_API_KEY: __SENDGRID__
-apiVersion: v1
-kind: Secret
-metadata:
-  name: expenseemailsender
-  namespace: default
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,6 +5,7 @@ metadata:
   namespace: default
   labels:
     app: expenseemailsender
+    aadpodidbinding: exppoidentity
 spec:
   selector:
     matchLabels:
@@ -23,16 +14,28 @@ spec:
     metadata:
       labels:
         app: expenseemailsender
+        aadpodidbinding: exppoidentity
     spec:
       containers:
       - name: expenseemailsender
-        image: __FUNCIMAGE__
+        image: __EMAILFUNCTIONIMAGE__
         env:
         - name: AzureFunctionsJobHost__functions__0
           value: ExpenseEmailSender
         envFrom:
         - secretRef:
             name: expenseemailsender
+        volumeMounts:
+        - name: secrets-store-inline
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
+      volumes:
+      - name: secrets-store-inline
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: azure-sync
 ---
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject

@@ -1,16 +1,25 @@
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: aspnetapp
-  labels:
+  labels: 
     app: aspnetapp
 spec:
-  containers:
-  - image: "mcr.microsoft.com/dotnet/core/samples:aspnetapp"
-    name: aspnetapp-image
-    ports:
-    - containerPort: 80
-      protocol: TCP
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aspnetapp
+  template:
+    metadata:
+      labels:
+        app: aspnetapp
+    spec:
+      containers:
+      - name: aspnetapp-image
+        image: "mcr.microsoft.com/dotnet/core/samples:aspnetapp"
+        ports:
+        - containerPort: 80
+          protocol: TCP
 ---
 apiVersion: v1
 kind: Service
