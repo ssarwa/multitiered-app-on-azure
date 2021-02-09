@@ -1,6 +1,10 @@
 on: [push]
 name: Linux_Container_Workflow
 
+env:
+  CLUSTER_NAME: 'cncfazcluster'
+  CLUSTER_RESOURCE_GROUP: 'CNCF-Azure-RG'
+
 jobs:
     build-and-deploy:
         runs-on: ubuntu-latest
@@ -36,6 +40,13 @@ jobs:
 
             cd ..
         
+        - name: 'Set AKS Context'
+          uses: azure/aks-set-context@v1
+          with:
+            creds: '${{ secrets.AZURE_CREDENTIALS }}'
+            cluster-name: ${{ env.CLUSTER_NAME }}
+            resource-group: ${{ env.CLUSTER_RESOURCE_GROUP }}
+
         - name: 'Deploy Backend'
           uses: Azure/k8s-deploy@v1.3
           with:
@@ -49,7 +60,7 @@ jobs:
           with:
             manifests: |
                 yml/frontend.yaml
-            images: '${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/web:${{ github.sha }}'
+            images: '${{ secrets.REGISTRY_LOGIN_SERVER }}/conexp/web:${{ github.sha }}'        
             kubectl-version: 'latest'
 
         - name: 'Deploy KEDA Function'
