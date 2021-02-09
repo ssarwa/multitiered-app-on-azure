@@ -25,6 +25,8 @@ spec:
         env:
         - name: KeyVaultName
           value: "expensesvault"
+        - name: QueueName
+          value: "contosoexpenses"
         - name: ConfigValues__CostCenterAPIUrl
           value: "http://backend-svc.default.svc.cluster.local:80"
 ---

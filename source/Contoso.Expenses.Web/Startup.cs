@@ -57,7 +57,7 @@ namespace Contoso.Expenses.Web
             var kvUri = "https://" + keyVaultName + ".vault.azure.net";
             var client = new SecretClient(new Uri(kvUri), new DefaultAzureCredential());
             var secretDbConn = client.GetSecret("mysqlconnweb");
-            var secretStorageConn = client.GetSecret("mysqlconnweb");
+            var secretStorageConn = client.GetSecret("storageconn");
             string connectionDBString = secretDbConn.Value.Value;
             string connectionStorageString = secretStorageConn.Value.Value;
             services.AddDbContext<ContosoExpensesWebContext>(options =>
