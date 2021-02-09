@@ -25,10 +25,6 @@ spec:
         env:
         - name: KeyVaultName
           value: "expensesvault"
-      imagePullSecrets:
-      - name: regcred
-      nodeSelector: 
-        "beta.kubernetes.io/os": linux
 ---
 apiVersion: v1
 kind: Service

@@ -27,10 +27,6 @@ spec:
           value: "expensesvault"
         - name: ConfigValues__CostCenterAPIUrl
           value: "http://backend-svc.default.svc.cluster.local:80"
-      imagePullSecrets:
-      - name: regcred
-      nodeSelector: 
-        "beta.kubernetes.io/os": linux
 ---
 apiVersion: v1
 kind: Service
