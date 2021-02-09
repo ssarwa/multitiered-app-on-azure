@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: __APIIMAGE__
+        image: cncfazure.azurecr.io/conexp/api:latest
         ports:
         - containerPort: 80
         imagePullPolicy: Always

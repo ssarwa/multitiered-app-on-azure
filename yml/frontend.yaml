@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: __WEBIMAGE__
+        image: cncfazure.azurecr.io/conexp/web:latest
         ports:
         - containerPort: 80  
         imagePullPolicy: Always

@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: expenseemailsender
-        image: __EMAILFUNCTIONIMAGE__
+        image: cncfazure.azurecr.io/conexp/emaildispatcher:latest
         env:
         - name: AzureFunctionsJobHost__functions__0
           value: ExpenseEmailSender
