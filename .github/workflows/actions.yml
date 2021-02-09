@@ -1,5 +1,5 @@
 on: [push]
-name: Linux_Container_Workflow
+name: AKS_CNCF_Services_WorkFlow
 
 env:
   CLUSTER_NAME: 'cncfazcluster'
