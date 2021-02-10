@@ -29,22 +29,29 @@ We will create and setup the infrastructure including the following services:
 #### Initialize variables
 
 ```bash
-RG='CNCF-Azure-RG'
-CLUSTER_NAME='cncfazcluster'
-LOCATION='westus'
-AppGtwy='CNCFAppGtwy'
-ACR='cncfazure'
-domainName='sarwascloud.com'
-MYSQL='expensedbserver'
-adminUser='expenseadmin'
-mysqlPwd='Azure1234!@#$'
-KeyVault='expensesvault'
+# Add variables
+RG=''
+CLUSTER_NAME=''
+LOCATION=''
+AppGtwy=''
+ACR=''
+domainName=''
+MYSQL=''
+adminUser=''
+mysqlPwd=''
+KeyVault=''
+identityName=''
+storageAcc=''
+queueName=''
+SUBID=''
 ```
 
 #### Login to Azure
 
 ```bash
 az login
+
+az account set -s $SUBID
 ```
 
 #### Create Resource Group
@@ -74,7 +81,7 @@ az aks create \
     --network-plugin azure \
     --enable-managed-identity \
     -a ingress-appgw --appgw-name $AppGtwy \
-    --appgw-subnet-prefix "10.2.0.0/16" \
+    --appgw-subnet-cidr "10.2.0.0/16" \
     --enable-aad \
     --enable-pod-identity \
     --aad-admin-group-object-ids $objectId \
@@ -114,22 +121,11 @@ az aks get-credentials --resource-group $RG --name $CLUSTER_NAME --admin
 # Note: --validate=false is required per https://github.com/jetstack/cert-manager/issues/2208#issuecomment-541311021
 kubectl apply -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.13/deploy/manifests/00-crds.yaml --validate=false
 
-# Create the namespace for cert-manager
 kubectl create namespace cert-manager
-
-# Label the cert-manager namespace to disable resource validation
 kubectl label namespace cert-manager cert-manager.io/disable-validation=true
-
-# Add the Jetstack Helm repository
 helm repo add jetstack https://charts.jetstack.io
-
-# Update your local Helm chart repository cache
 helm repo update
-
-# Install v0.11 of cert-manager Helm chart
 helm install cert-manager --namespace cert-manager --version v0.13.0 jetstack/cert-manager
-
-# Install Cluster Issuer (change email address)
 kubectl apply -f yml/clusterissuer.yaml
 
 # Test a sample application. The below command will deploy a Pod, Service and Ingress resource. Application Gateway will be configured with the associated rules.
@@ -137,7 +133,6 @@ kubectl apply -f yml/Test-App-Ingress.yaml
 
 # Clean up after successfully verifying AGIC
 kubectl delete -f yml/Test-App-Ingress.yaml
-
 ```
 
 #### Install KEDA runtime
@@ -149,17 +144,59 @@ kubectl create namespace keda
 helm install keda kedacore/keda --namespace keda
 ```
 
+#### Install CSI Provider for Azure Keyvault
+
+```bash
+helm repo add csi-secrets-store-provider-azure https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/charts
+helm repo update
+kubectl create namespace csi
+helm install csi csi-secrets-store-provider-azure/csi-secrets-store-provider-azure --namespace csi
+```
+
+#### Assign managed identity
+
+```bash
+clientId=$(az aks show -n $CLUSTER_NAME -g $RG --query identityProfile.kubeletidentity.clientId -o tsv)
+
+scope=$(az group show -g $nodeRG --query id -o tsv)
+
+az role assignment create --role "Managed Identity Operator" --assignee $clientId --scope $scope
+```
+
+#### Create Azure Keyvault for saving secrets and assign identity
+
+```bash
+az keyvault create --location $LOCATION --name $KeyVault --resource-group $RG
+
+kvscope=$(az keyvault show -g $RG -n $KeyVault --query id -o tsv)
+
+az identity create -g $RG -n $identityName
+
+idClientid=$(az identity show -n $identityName -g $RG --query clientId -o tsv)
+
+idPincipalid=$(az identity show -n $identityName -g $RG --query principalId -o tsv)
+
+identityId=$(az identity show -n $identityName -g $RG --query id -o tsv)
+
+az role assignment create --role "Reader" --assignee $idPincipalid --scope $kvscope
+
+az keyvault set-policy -n $KeyVault --secret-permissions get --spn $idClientid
+
+az aks pod-identity add --resource-group $RG --cluster-name $CLUSTER_NAME --namespace default --name $identityName --identity-resource-id $identityId
+```
+
 #### Create MySQL managed service (basic sku) and add Kubernetes public ip in it firewall rules
 
 ```bash
 az mysql server create --resource-group $RG --name $MYSQL --location $LOCATION --admin-user $adminUser --admin-password $mysqlPwd --sku-name B_Gen5_2
-az mysql server firewall-rule create --name allowip --resource-group $RG --server-name $MYSQL --start-ip-address <Kubernetes Public IP> --end-ip-address <Kubernetes Public IP>
+az mysql server firewall-rule create --name allowip --resource-group $RG --server-name $MYSQL --start-ip-address 13.87.129.17 --end-ip-address 13.87.129.17
+az mysql server firewall-rule create --name allowip2 --resource-group $RG --server-name $MYSQL --start-ip-address 67.170.114.246 --end-ip-address 67.170.114.246
 ```
 
 #### Login to MySQL (you may need to add you ip to firewall rules as well)
 
 ```bash
-mysql -h expensedbserver.mysql.database.azure.com -u expenseadmin@expensedbserver -p
+mysql -h $MYSQL.mysql.database.azure.com -u $adminUser@$MYSQL -p
 show databases;
 
 CREATE DATABASE conexpweb;
@@ -175,21 +212,20 @@ CREATE TABLE CostCenters(
    PRIMARY KEY ( CostCenterId )
 );
 
-INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (1, 'user1@mycompany.com', 'user1@mycompany.com','123E42');
-INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (2, 'user2@mycompany.com', 'user2@mycompany.com','456C14');
-INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (3, 'user3@mycompany.com', 'user3@mycompany.com','456C14');
+# Insert example records
+INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (1, 'ssarwa@microsoft.com', 'ssarwa@microsoft.com','123E42');
+INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (2, 'ssarwa@microsoft.com', 'ssarwa@microsoft.com','456C14');
+INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (3, 'ssarwa@microsoft.com', 'ssarwa@microsoft.com','456C14');
 
-USE conexpapi;
-GRANT ALL PRIVILEGES ON *.* TO 'expenseadmin'@'%';
-
-USE conexpweb;
-GRANT ALL PRIVILEGES ON *.* TO 'expenseadmin'@'%';
+quit
 ```
 
-#### Create Azure Keyvault for saving secrets
+#### Create Storage queue
 
 ```bash
-az keyvault create --location $LOCATION --name $KeyVault --resource-group $RG
+az storage account create -n $storageAcc -g $RG -l $LOCATION --sku Standard_LRS
+
+az storage queue create -n $queueName --account-name $storageAcc
 ```
 
 #### Add corresponding secrets to the create KeyVault
@@ -201,6 +237,49 @@ az keyvault create --location $LOCATION --name $KeyVault --resource-group $RG
    1. storageconn
 3. Sendgrid Key
    1. sendgridapi
+
+```bash
+az keyvault secret set --vault-name $KeyVault --name mysqlconnapi --value '<replace>Connection strings for MySQL API connection</replace>'
+az keyvault secret set --vault-name $KeyVault --name mysqlconnweb --value '<replace>Connection strings for MySQL Web connection</replace>'
+az keyvault secret set --vault-name $KeyVault --name storageconn --value '<replace>Connection strings for Storage account</replace>'
+az keyvault secret set --vault-name $KeyVault --name sendgridapi --value '<replace>Sendgrid Key</replace>'
+az keyvault secret set --vault-name $KeyVault --name funcruntime --value 'dotnet'
+```
+
+#### Application Deployment
+
+```bash
+registryHost=$(az acr show -n $ACR --query loginServer -o tsv)
+
+az acr login -n $ACR
+
+cd source/Contoso.Expenses.API
+docker build -t $registryHost/conexp/api:latest .
+docker push $registryHost/conexp/api:latest
+
+cd ..
+docker build -t $registryHost/conexp/web:latest -f Contoso.Expenses.Web/Dockerfile .
+docker push $registryHost/conexp/web:latest
+
+docker build -t $registryHost/conexp/emaildispatcher:latest -f Contoso.Expenses.KedaFunctions/Dockerfile .
+docker push $registryHost/conexp/emaildispatcher:latest
+
+cd ..
+
+# Update yamls files and change identity name, keyvault name and image used
+# Create CSI Provider Class
+kubectl apply -f yml/csi-sync.yaml
+
+# Create API
+kubectl apply -f yml/backend.yaml
+
+# Create frontend
+kubectl apply -f yml/frontend.yaml
+
+# Create KEDA function
+kubectl apply -f yml/function.yaml
+
+```
 
 #### Prepare Github Actions
 
@@ -219,18 +298,6 @@ az role assignment create \
   --assignee <ClientId> \
   --scope $registryId \
   --role AcrPush
-
-# Get read access to KeyVault
-az keyvault set-policy -n $KeyVault --secret-permissions get list --spn <ClientId>
-
-# Install CSI Provider for Azure Keyvault
-
-helm repo add csi-secrets-store-provider-azure https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/charts
-helm install csi csi-secrets-store-provider-azure/csi-secrets-store-provider-azure
-
-# Create CSI Provider Class
-
-kubectl apply -f yml/csi-sync.yaml
 
 # Now you are ready to trigger the build and release from Github Actions using the provided Actions file.
 ```
