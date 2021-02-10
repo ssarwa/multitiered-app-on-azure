@@ -189,8 +189,8 @@ az aks pod-identity add --resource-group $RG --cluster-name $CLUSTER_NAME --name
 
 ```bash
 az mysql server create --resource-group $RG --name $MYSQL --location $LOCATION --admin-user $adminUser --admin-password $mysqlPwd --sku-name B_Gen5_2
-az mysql server firewall-rule create --name allowip --resource-group $RG --server-name $MYSQL --start-ip-address 13.87.129.17 --end-ip-address 13.87.129.17
-az mysql server firewall-rule create --name allowip2 --resource-group $RG --server-name $MYSQL --start-ip-address 67.170.114.246 --end-ip-address 67.170.114.246
+az mysql server firewall-rule create --name allowip --resource-group $RG --server-name $MYSQL --start-ip-address <Kubernetes public ip> --end-ip-address <Kubernetes public ip>
+az mysql server firewall-rule create --name devbox --resource-group $RG --server-name $MYSQL --start-ip-address <Dev station ip> --end-ip-address <Dev station ip>
 ```
 
 #### Login to MySQL (you may need to add you ip to firewall rules as well)
