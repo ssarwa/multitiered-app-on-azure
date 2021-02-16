@@ -5,7 +5,7 @@ metadata:
   namespace: default
   labels:
     app: expenseemailsender
-    aadpodidbinding: exppoidentity
+    aadpodidbinding: <identity name created>
 spec:
   selector:
     matchLabels:
@@ -14,11 +14,11 @@ spec:
     metadata:
       labels:
         app: expenseemailsender
-        aadpodidbinding: exppoidentity
+        aadpodidbinding: <identity name created>
     spec:
       containers:
       - name: expenseemailsender
-        image: cncfazure.azurecr.io/conexp/emaildispatcher:latest
+        image: <function image built>
         env:
         - name: AzureFunctionsJobHost__functions__0
           value: ExpenseEmailSender
@@ -41,6 +41,6 @@ spec:
     metadata:
       type: queueTrigger
       connectionFromEnv: AzureWebJobsStorage
-      queueName: contosoexpenses
+      queueName: <Queue Name>
 ---
 

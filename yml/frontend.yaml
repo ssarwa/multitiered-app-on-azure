@@ -4,7 +4,7 @@ metadata:
   name: frontend-deployment
   labels:
     app: conexp-frontend
-    aadpodidbinding: exppoidentity
+    aadpodidbinding: <identity name created>
 spec:
   replicas: 1
   selector:
@@ -14,19 +14,19 @@ spec:
     metadata:
       labels:
         app: conexp-frontend
-        aadpodidbinding: exppoidentity
+        aadpodidbinding: <identity name created>
     spec:
       containers:
       - name: frontend
-        image: cncfazure.azurecr.io/conexp/web:latest
+        image: <frontend image built>
         ports:
         - containerPort: 80  
         imagePullPolicy: Always
         env:
         - name: KeyVaultName
-          value: "expensesvault"
+          value: "<Keyvault Name>"
         - name: QueueName
-          value: "contosoexpenses"
+          value: "<Queue Name>"
         - name: ConfigValues__CostCenterAPIUrl
           value: "http://backend-svc.default.svc.cluster.local:80"
 ---
@@ -44,25 +44,4 @@ spec:
     protocol: TCP
     port: 80
     targetPort: 80
----
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: frontend-ingress-rules
-  annotations:
-    kubernetes.io/ingress.class: azure/application-gateway
-    cert-manager.io/cluster-issuer: letsencrypt-staging
-    cert-manager.io/acme-challenge-type: http01
-spec:
-  tls:
-  - hosts:
-    - aks.sarwascloud.com
-    secretName: letsencrypt-tls
-  rules:
-  - host: aks.sarwascloud.com
-    http:
-      paths:
-      - backend:
-          serviceName: conexp-frontend-svc
-          servicePort: 80
-        path: /
+

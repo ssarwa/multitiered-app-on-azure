@@ -1,0 +1,21 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: frontend-ingress-rules
+  annotations:
+    kubernetes.io/ingress.class: azure/application-gateway
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+    cert-manager.io/acme-challenge-type: http01
+spec:
+  tls:
+  - hosts:
+    - aks.<custom domain name>
+    secretName: letsencrypt-tls
+  rules:
+  - host: <custom domain name>
+    http:
+      paths:
+      - backend:
+          serviceName: conexp-frontend-svc
+          servicePort: 80
+        path: /

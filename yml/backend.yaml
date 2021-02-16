@@ -4,7 +4,7 @@ metadata:
   name: backend-deployment
   labels:
     app: backend
-    aadpodidbinding: exppoidentity
+    aadpodidbinding: <identity name created>
 spec:
   replicas: 1
   selector:
@@ -14,17 +14,17 @@ spec:
     metadata:
       labels:
         app: backend
-        aadpodidbinding: exppoidentity
+        aadpodidbinding: <identity name created>
     spec:
       containers:
       - name: backend
-        image: cncfazure.azurecr.io/conexp/api:latest
+        image: <Backend image built>
         ports:
         - containerPort: 80
         imagePullPolicy: Always
         env:
         - name: KeyVaultName
-          value: "expensesvault"
+          value: "<Keyvault Name>"
         volumeMounts:
         - name: secrets-store-inline
           mountPath: "/mnt/secrets-store"
