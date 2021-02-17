@@ -17,7 +17,7 @@ spec:
   parameters:
     usePodIdentity: "true"
     userAssignedIdentityID: ""
-    keyvaultName: "expensesvault"
+    keyvaultName: "<identity name created>"
     objects: |
       array:
         - |
@@ -32,6 +32,6 @@ spec:
           objectName: sendgridapi
           objectType: secret
           objectAlias: SENDGRID_API_KEY
-    tenantId: "72f988bf-86f1-41af-91ab-2d7cd011db47"
-    resourceGroup: "CNCF-Azure-RG"
-    subscriptionId: "12bb4e89-4f7a-41e0-a38f-b22f079248b4"
+    tenantId: "<Tenant ID>"
+    resourceGroup: "<Cluster RG Name>"
+    subscriptionId: "<Subscription ID>"
