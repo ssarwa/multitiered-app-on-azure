@@ -95,6 +95,7 @@ az aks create \
     --appgw-subnet-cidr "10.2.0.0/16" \
     --enable-aad \
     --enable-pod-identity \
+    --enable-addons monitoring
     --aad-admin-group-object-ids $objectId \
     --generate-ssh-keys \
     --attach-acr $ACR
