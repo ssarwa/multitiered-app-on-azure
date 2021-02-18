@@ -2,7 +2,9 @@
 
 ## Overview
 
-This article demonstrates a multi-tiered application to Azure Kubernetes Service deployment with Managed Azure Services and workflow automation
+This article demonstrates a multi-tiered application to Azure Kubernetes Service deployment with Managed Azure Services and workflow automation.
+
+Note that the below features are still in preview so it is NOT recommended for production workloads yet!!
 
 ## Architecture
 
@@ -46,6 +48,13 @@ storageAcc='expensesqueue'
 queueName='contosoexpenses'
 subscriptionId='12bb4e89-4f7a-41e0-a38f-b22f079248b4'
 tenantId='72f988bf-86f1-41af-91ab-2d7cd011db47'
+```
+
+#### Clone the repo
+
+```bash
+git clone https://github.com/ssarwa/cncf-azure.git
+cd cncf-azure
 ```
 
 #### Login to Azure
@@ -96,10 +105,12 @@ az aks create \
     --appgw-subnet-cidr "10.2.0.0/16" \
     --enable-aad \
     --enable-pod-identity \
-    --enable-addons monitoring \
     --aad-admin-group-object-ids $objectId \
     --generate-ssh-keys \
     --attach-acr $acrName
+
+# Enable monitoring on the cluster
+az aks enable-addons -a monitoring -n $clusterName -g $resourcegroupName
 ```
 
 #### Add Public IP to custom domain
@@ -143,6 +154,7 @@ helm install cert-manager --namespace cert-manager --version v0.13.0 jetstack/ce
 kubectl apply -f yml/clusterissuer.yaml
 
 # Test a sample application. The below command will deploy a Pod, Service and Ingress resource. Application Gateway will be configured with the associated rules.
+sed -i "s/<custom domain name>/$domainName/g" yml/Test-App-Ingress.yaml
 kubectl apply -f yml/Test-App-Ingress.yaml
 
 # Clean up after successfully verifying AGIC
@@ -207,7 +219,7 @@ identityId=$(az identity show -n $identityName -g $resourcegroupName --query id 
 
 az role assignment create --role "Reader" --assignee $idPincipalid --scope $kvscope
 
-az keyvault set-policy -n $KeyVault --secret-permissions get --spn $idClientid
+az keyvault set-policy -n $keyvaultName --secret-permissions get --spn $idClientid
 
 az aks pod-identity add --resource-group $resourcegroupName --cluster-name $clusterName --namespace default --name $identityName --identity-resource-id $identityId
 ```
@@ -223,6 +235,8 @@ az mysql server firewall-rule create --name devbox --resource-group $resourcegro
 ```
 
 #### Login to MySQL (you may need to add you ip to firewall rules as well)
+
+Install MySQL here: https://dev.mysql.com/doc/mysql-installation-excerpt/5.7/en/installing.html
 
 ```bash
 mysql -h $mysqlSvr.mysql.database.azure.com -u $adminUser@$mysqlSvr -p
@@ -270,18 +284,16 @@ az storage queue create -n $queueName --account-name $storageAcc
    1. sendgridapi
 
 ```bash
-az keyvault secret set --vault-name $KeyVault --name mysqlconnapi --value '<replace>Connection strings for MySQL API connection</replace>'
-az keyvault secret set --vault-name $KeyVault --name mysqlconnweb --value '<replace>Connection strings for MySQL Web connection</replace>'
-az keyvault secret set --vault-name $KeyVault --name storageconn --value '<replace>Connection strings for Storage account</replace>'
-az keyvault secret set --vault-name $KeyVault --name sendgridapi --value '<replace>Sendgrid Key</replace>'
-az keyvault secret set --vault-name $KeyVault --name funcruntime --value 'dotnet'
+az keyvault secret set --vault-name $keyvaultName --name mysqlconnapi --value '<replace>Connection strings for MySQL API connection</replace>'
+az keyvault secret set --vault-name $keyvaultName --name mysqlconnweb --value '<replace>Connection strings for MySQL Web connection</replace>'
+az keyvault secret set --vault-name $keyvaultName --name storageconn --value '<replace>Connection strings for Storage account</replace>'
+az keyvault secret set --vault-name $keyvaultName --name sendgridapi --value '<replace>Sendgrid Key</replace>'
+az keyvault secret set --vault-name $keyvaultName --name funcruntime --value 'dotnet'
 ```
 
 #### Application Deployment
 
 ```bash
-# Clone the repo
-git clone https://github.com/ssarwa/cncf-azure.git
 registryHost=$(az acr show -n $acrName --query loginServer -o tsv)
 
 az acr login -n $acrName
@@ -330,7 +342,6 @@ sed -i "s/<identity name created>/$identityName/g" yml/function.yaml
 sed -i "s/<function image built>/$registryHost\/conexp\/emaildispatcher:latest/g" yml/function.yaml
 sed -i "s/<Queue Name>/$queueName/g" yml/function.yaml
 kubectl apply -f yml/function.yaml
-
 ```
 
 #### Prepare Github Actions

@@ -12,11 +12,15 @@ adminUser='expenseadmin'
 mysqlPwd=''
 keyvaultName='expensesvault'
 # Must be lower case
-identityName='exppoidentity'
+identityName='expidentity'
 storageAcc='expensesqueue'
 queueName='contosoexpenses'
 subscriptionId='12bb4e89-4f7a-41e0-a38f-b22f079248b4'
 tenantId='72f988bf-86f1-41af-91ab-2d7cd011db47'
+
+# Clone the repo
+git clone https://github.com/ssarwa/cncf-azure.git
+cd cncf-azure
 
 # Login to Azure
 az login
@@ -25,6 +29,7 @@ az account set -s $subscriptionId
 # Register to AKS preview features
 # Follow https://docs.microsoft.com/en-us/azure/aks/use-azure-ad-pod-identity
 az feature register --name EnablePodIdentityPreview --namespace Microsoft.ContainerService
+az feature register --name AKS-IngressApplicationGatewayAddon --namespace Microsoft.ContainerService
 az provider register -n Microsoft.ContainerService
 az extension add --name aks-preview
 az extension update --name aks-preview
@@ -48,10 +53,12 @@ az aks create \
     --appgw-subnet-cidr "10.2.0.0/16" \
     --enable-aad \
     --enable-pod-identity \
-    --enable-addons monitoring \
     --aad-admin-group-object-ids $objectId \
     --generate-ssh-keys \
     --attach-acr $acrName
+
+# Enable monitoring on the cluster
+az aks enable-addons -a monitoring -n $clusterName -g $resourcegroupName
 
 # Add Public IP to custom domain
 # Get Node Resource Group
@@ -83,6 +90,7 @@ helm install cert-manager --namespace cert-manager --version v0.13.0 jetstack/ce
 kubectl apply -f yml/clusterissuer.yaml
 
 # Test a sample application. The below command will deploy a Pod, Service and Ingress resource. Application Gateway will be configured with the associated rules.
+gsed -i "s/<custom domain name>/$domainName/g" yml/Test-App-Ingress.yaml
 kubectl apply -f yml/Test-App-Ingress.yaml
 
 # Clean up after successfully verifying AGIC
@@ -91,10 +99,10 @@ kubectl delete -f yml/Test-App-Ingress.yaml
 # Install OSM Service Mesh (To-do, skip this section for now)
 # Install OSM on local using https://github.com/openservicemesh/osm#install-osm
 # Install OSM on Kubernetes
-osm install --mesh-name exp-osm
+#osm install --mesh-name exp-osm
 
 # Enable OSM on the namespace. Enables sidecar injection
-osm namespace add default
+#osm namespace add default
 
 # Install KEDA runtime
 helm repo add kedacore https://kedacore.github.io/charts
@@ -121,7 +129,7 @@ idClientid=$(az identity show -n $identityName -g $resourcegroupName --query cli
 idPincipalid=$(az identity show -n $identityName -g $resourcegroupName --query principalId -o tsv)
 identityId=$(az identity show -n $identityName -g $resourcegroupName --query id -o tsv)
 az role assignment create --role "Reader" --assignee $idPincipalid --scope $kvscope
-az keyvault set-policy -n $KeyVault --secret-permissions get --spn $idClientid
+az keyvault set-policy -n $keyvaultName --secret-permissions get --spn $idClientid
 
 # Add Pod Identity
 az aks pod-identity add --resource-group $resourcegroupName --cluster-name $clusterName --namespace default --name $identityName --identity-resource-id $identityId
@@ -133,7 +141,7 @@ az mysql server create --resource-group $resourcegroupName --name $mysqlSvr --lo
 az mysql server firewall-rule create --name allowip --resource-group $resourcegroupName --server-name $mysqlSvr --start-ip-address $aksPublicIpAddress --end-ip-address $aksPublicIpAddress
 az mysql server firewall-rule create --name devbox --resource-group $resourcegroupName --server-name $mysqlSvr --start-ip-address <Dev station ip> --end-ip-address <Dev station ip>
 
-# Login to MySQL (you may need to add you ip to firewall rules as well)
+# Login to MySQL (you may need to add you ip to firewall rules as well). Install MySQL here: https://dev.mysql.com/doc/mysql-installation-excerpt/5.7/en/installing.html
 mysql -h $mysqlSvr.mysql.database.azure.com -u $adminUser@$mysqlSvr -p
 show databases;
 
@@ -173,15 +181,13 @@ az storage queue create -n $queueName --account-name $storageAcc
 #3. Sendgrid Key
 #   1. sendgridapi
 
-az keyvault secret set --vault-name $KeyVault --name mysqlconnapi --value '<replace>Connection strings for MySQL API connection</replace>'
-az keyvault secret set --vault-name $KeyVault --name mysqlconnweb --value '<replace>Connection strings for MySQL Web connection</replace>'
-az keyvault secret set --vault-name $KeyVault --name storageconn --value '<replace>Connection strings for Storage account</replace>'
-az keyvault secret set --vault-name $KeyVault --name sendgridapi --value '<replace>Sendgrid Key</replace>'
-az keyvault secret set --vault-name $KeyVault --name funcruntime --value 'dotnet'
+az keyvault secret set --vault-name $keyvaultName --name mysqlconnapi --value '<replace>Connection strings for MySQL API connection</replace>'
+az keyvault secret set --vault-name $keyvaultName --name mysqlconnweb --value '<replace>Connection strings for MySQL Web connection</replace>'
+az keyvault secret set --vault-name $keyvaultName --name storageconn --value '<replace>Connection strings for Storage account</replace>'
+az keyvault secret set --vault-name $keyvaultName --name sendgridapi --value '<replace>Sendgrid Key</replace>'
+az keyvault secret set --vault-name $keyvaultName --name funcruntime --value 'dotnet'
 
 # Application Deployment
-# Clone the repo
-git clone https://github.com/ssarwa/cncf-azure.git
 registryHost=$(az acr show -n $acrName --query loginServer -o tsv)
 
 az acr login -n $acrName
@@ -202,31 +208,34 @@ cd ..
 # Update yamls files and change identity name, keyvault name, queue name and image used refer values between <> in all files
 # Create CSI Provider Class
 # Use gsed for MacOS
-sed -i "s/<Tenant ID>/$tenantId/g" yml/csi-sync.yaml
-sed -i "s/<Cluster RG Name>/$resourcegroupName/g" yml/csi-sync.yaml
-sed -i "s/<Subscription ID>/$subscriptionId/g" yml/csi-sync.yaml
-sed -i "s/<Keyvault Name>/$keyvaultName/g" yml/csi-sync.yaml
+gsed -i "s/<Tenant ID>/$tenantId/g" yml/csi-sync.yaml
+gsed -i "s/<Cluster RG Name>/$resourcegroupName/g" yml/csi-sync.yaml
+gsed -i "s/<Subscription ID>/$subscriptionId/g" yml/csi-sync.yaml
+gsed -i "s/<Keyvault Name>/$keyvaultName/g" yml/csi-sync.yaml
 kubectl apply -f yml/csi-sync.yaml
 
 # Create API
-sed -i "s/<identity name created>/$identityName/g" yml/backend.yaml
-sed -i "s/<Backend image built>/$registryHost\/conexp\/api:latest/g" yml/backend.yaml
-sed -i "s/<Keyvault Name>/$keyvaultName/g" yml/backend.yaml
+gsed -i "s/<identity name created>/$identityName/g" yml/backend.yaml
+gsed -i "s/<Backend image built>/$registryHost\/conexp\/api:latest/g" yml/backend.yaml
+gsed -i "s/<Keyvault Name>/$keyvaultName/g" yml/backend.yaml
 kubectl apply -f yml/backend.yaml
 
 # Create frontend
-sed -i "s/<identity name created>/$identityName/g" yml/frontend.yaml
-sed -i "s/<frontend image built>/$registryHost\/conexp\/web:latest/g" yml/frontend.yaml
-sed -i "s/<Keyvault Name>/$keyvaultName/g" yml/frontend.yaml
-sed -i "s/<Queue Name>/$queueName/g" yml/frontend.yaml
+gsed -i "s/<identity name created>/$identityName/g" yml/frontend.yaml
+gsed -i "s/<frontend image built>/$registryHost\/conexp\/web:latest/g" yml/frontend.yaml
+gsed -i "s/<Keyvault Name>/$keyvaultName/g" yml/frontend.yaml
+gsed -i "s/<Queue Name>/$queueName/g" yml/frontend.yaml
 kubectl apply -f yml/frontend.yaml
 
 # Create ingress resource
-sed -i "s/<custom domain name>/$domainName/g" yml/ingress.yaml
+gsed -i "s/<custom domain name>/$domainName/g" yml/ingress.yaml
 kubectl apply -f yml/ingress.yaml
 
 # Create KEDA function
-sed -i "s/<identity name created>/$identityName/g" yml/function.yaml
-sed -i "s/<function image built>/$registryHost\/conexp\/emaildispatcher:latest/g" yml/function.yaml
-sed -i "s/<Queue Name>/$queueName/g" yml/function.yaml
+gsed -i "s/<identity name created>/$identityName/g" yml/function.yaml
+gsed -i "s/<function image built>/$registryHost\/conexp\/emaildispatcher:latest/g" yml/function.yaml
+gsed -i "s/<Queue Name>/$queueName/g" yml/function.yaml
 kubectl apply -f yml/function.yaml
+
+# Watch all pods are up and running
+kubectl get po
