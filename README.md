@@ -30,21 +30,22 @@ We will create and setup the infrastructure including the following services:
 
 ```bash
 # Add variables (sample values below change as required)
-RG='CNCF-Azure-RG'
-CLUSTER_NAME='myaksCluster'
-LOCATION='westus'
-AppGtwy='AKSAppGtwy'
-ACR='myPrivateReg'
+resourcegroupName='CNCF-Azure-RG'
+clusterName='myaksCluster'
+location='westus'
+appGtwyName='AKSAppGtwy'
+acrName='cncfazure'
 domainName='sarwascloud.com'
-MYSQL='expensedbserver'
+mysqlSvr='expensedbserver'
 adminUser='expenseadmin'
 mysqlPwd=''
-KeyVault='expensesvault'
+keyvaultName='expensesvault'
 # Must be lower case
 identityName='exppoidentity'
 storageAcc='expensesqueue'
 queueName='contosoexpenses'
-SUBID='12bb4e89-4f7a-41e0-a38f-b22f079248b4'
+subscriptionId='12bb4e89-4f7a-41e0-a38f-b22f079248b4'
+tenantId='72f988bf-86f1-41af-91ab-2d7cd011db47'
 ```
 
 #### Login to Azure
@@ -52,7 +53,7 @@ SUBID='12bb4e89-4f7a-41e0-a38f-b22f079248b4'
 ```bash
 az login
 
-az account set -s $SUBID
+az account set -s $subscriptionId
 ```
 
 #### Register to AKS preview features
@@ -68,13 +69,13 @@ az extension update --name aks-preview
 #### Create Resource Group
 
 ```bash
-az group create --name $RG --location $LOCATION
+az group create --name $resourcegroupName --location $location
 ```
 
 #### Create ACR
 
 ```bash
-az acr create --resource-group $RG --name $ACR --sku Standard
+az acr create --resource-group $resourcegroupName --name $acrName --sku Standard
 ```
 
 #### Get Object ID of the AAD Group (create AAD Group and add the members, in this case: fta-cncf-azure)
@@ -87,34 +88,34 @@ objectId=$(az ad group list --filter "displayname eq 'fta-cncf-azure'" --query '
 
 ```bash
 az aks create \
-    -n $CLUSTER_NAME \
-    -g $RG \
+    -n $clusterName \
+    -g $resourcegroupName \
     --network-plugin azure \
     --enable-managed-identity \
-    -a ingress-appgw --appgw-name $AppGtwy \
+    -a ingress-appgw --appgw-name $appGtwyName \
     --appgw-subnet-cidr "10.2.0.0/16" \
     --enable-aad \
     --enable-pod-identity \
     --enable-addons monitoring \
     --aad-admin-group-object-ids $objectId \
     --generate-ssh-keys \
-    --attach-acr $ACR
+    --attach-acr $acrName
 ```
 
 #### Add Public IP to custom domain
 
 ```bash
 # Get Node Resource Group
-nodeRG=$(az aks show --resource-group $RG --name $CLUSTER_NAME --query nodeResourceGroup -o tsv)
+nodeRG=$(az aks show --resource-group $resourcegroupName --name $clusterName --query nodeResourceGroup -o tsv)
 
 # Get Public IP created by App Gtwy in AKS created cluster
-appIP=$(az network public-ip show -g $nodeRG -n $AppGtwy-appgwpip --query ipAddress -o tsv)
+appIP=$(az network public-ip show -g $nodeRG -n $appGtwyName-appgwpip --query ipAddress -o tsv)
 
 # Create DNS zone 
-az network dns zone create -g $RG -n $domainName
+az network dns zone create -g $resourcegroupName -n $domainName
 
 # Once created, add Nameservers in the domain provider (eg go daddy, may take sometime to update the name servers)
-az network dns record-set a add-record --resource-group $RG --zone-name $domainName --record-set-name "aks" --ipv4-address $appIP
+az network dns record-set a add-record --resource-group $resourcegroupName --zone-name $domainName --record-set-name "aks" --ipv4-address $appIP
 
 # For more details see the tutorial on registering custom domain: https://docs.microsoft.com/en-us/azure/dns/dns-delegate-domain-azure-dns
 ```
@@ -124,7 +125,7 @@ az network dns record-set a add-record --resource-group $RG --zone-name $domainN
 #### Merge Kubeconfig
 
 ```bash
-az aks get-credentials --resource-group $RG --name $CLUSTER_NAME --admin
+az aks get-credentials --resource-group $resourcegroupName --name $clusterName --admin
 ```
 
 #### Install Cert Manager
@@ -182,7 +183,7 @@ helm install csi csi-secrets-store-provider-azure/csi-secrets-store-provider-azu
 #### Assign managed identity
 
 ```bash
-clientId=$(az aks show -n $CLUSTER_NAME -g $RG --query identityProfile.kubeletidentity.clientId -o tsv)
+clientId=$(az aks show -n $clusterName -g $resourcegroupName --query identityProfile.kubeletidentity.clientId -o tsv)
 
 scope=$(az group show -g $nodeRG --query id -o tsv)
 
@@ -192,23 +193,23 @@ az role assignment create --role "Managed Identity Operator" --assignee $clientI
 #### Create Azure Keyvault for saving secrets and assign identity
 
 ```bash
-az keyvault create --location $LOCATION --name $KeyVault --resource-group $RG
+az keyvault create --location $location --name $keyvaultName --resource-group $resourcegroupName
 
-kvscope=$(az keyvault show -g $RG -n $KeyVault --query id -o tsv)
+kvscope=$(az keyvault show -g $resourcegroupName -n $keyvaultName --query id -o tsv)
 
-az identity create -g $RG -n $identityName
+az identity create -g $resourcegroupName -n $identityName
 
-idClientid=$(az identity show -n $identityName -g $RG --query clientId -o tsv)
+idClientid=$(az identity show -n $identityName -g $resourcegroupName --query clientId -o tsv)
 
-idPincipalid=$(az identity show -n $identityName -g $RG --query principalId -o tsv)
+idPincipalid=$(az identity show -n $identityName -g $resourcegroupName --query principalId -o tsv)
 
-identityId=$(az identity show -n $identityName -g $RG --query id -o tsv)
+identityId=$(az identity show -n $identityName -g $resourcegroupName --query id -o tsv)
 
 az role assignment create --role "Reader" --assignee $idPincipalid --scope $kvscope
 
 az keyvault set-policy -n $KeyVault --secret-permissions get --spn $idClientid
 
-az aks pod-identity add --resource-group $RG --cluster-name $CLUSTER_NAME --namespace default --name $identityName --identity-resource-id $identityId
+az aks pod-identity add --resource-group $resourcegroupName --cluster-name $clusterName --namespace default --name $identityName --identity-resource-id $identityId
 ```
 
 #### Create MySQL managed service (basic sku) and add Kubernetes Load Balancer's public ip in it firewall rules
@@ -216,15 +217,15 @@ az aks pod-identity add --resource-group $RG --cluster-name $CLUSTER_NAME --name
 ```bash
 aksPublicIpName=$(az network lb show -n kubernetes -g $nodeRG --query "frontendIpConfigurations[0].name" -o tsv)
 aksPublicIpAddress=$(az network public-ip show -n $aksPublicIpName -g $nodeRG --query ipAddress -o tsv)
-az mysql server create --resource-group $RG --name $MYSQL --location $LOCATION --admin-user $adminUser --admin-password $mysqlPwd --sku-name B_Gen5_2
-az mysql server firewall-rule create --name allowip --resource-group $RG --server-name $MYSQL --start-ip-address $aksPublicIpAddress --end-ip-address $aksPublicIpAddress
-az mysql server firewall-rule create --name devbox --resource-group $RG --server-name $MYSQL --start-ip-address <Dev station ip> --end-ip-address <Dev station ip>
+az mysql server create --resource-group $resourcegroupName --name $mysqlSvr --location $location --admin-user $adminUser --admin-password $mysqlPwd --sku-name B_Gen5_2
+az mysql server firewall-rule create --name allowip --resource-group $resourcegroupName --server-name $mysqlSvr --start-ip-address $aksPublicIpAddress --end-ip-address $aksPublicIpAddress
+az mysql server firewall-rule create --name devbox --resource-group $resourcegroupName --server-name $mysqlSvr --start-ip-address <Dev station ip> --end-ip-address <Dev station ip>
 ```
 
 #### Login to MySQL (you may need to add you ip to firewall rules as well)
 
 ```bash
-mysql -h $MYSQL.mysql.database.azure.com -u $adminUser@$MYSQL -p
+mysql -h $mysqlSvr.mysql.database.azure.com -u $adminUser@$mysqlSvr -p
 show databases;
 
 CREATE DATABASE conexpweb;
@@ -251,7 +252,7 @@ quit
 #### Create Storage queue
 
 ```bash
-az storage account create -n $storageAcc -g $RG -l $LOCATION --sku Standard_LRS
+az storage account create -n $storageAcc -g $resourcegroupName -l $location --sku Standard_LRS
 
 az storage queue create -n $queueName --account-name $storageAcc
 ```
@@ -279,9 +280,9 @@ az keyvault secret set --vault-name $KeyVault --name funcruntime --value 'dotnet
 ```bash
 # Clone the repo
 git clone https://github.com/ssarwa/cncf-azure.git
-registryHost=$(az acr show -n $ACR --query loginServer -o tsv)
+registryHost=$(az acr show -n $acrName --query loginServer -o tsv)
 
-az acr login -n $ACR
+az acr login -n $acrName
 
 cd source/Contoso.Expenses.API
 docker build -t $registryHost/conexp/api:latest .
@@ -296,20 +297,36 @@ docker push $registryHost/conexp/emaildispatcher:latest
 
 cd ..
 
-# Update yamls files and change identity name, keyvault name, keyvault name, queue name and image used
+# Update yamls files and change identity name, keyvault name, queue name and image used refer values between <> in all files
 # Create CSI Provider Class
+# Use gsed for MacOS
+sed -i "s/<Tenant ID>/$tenantId/g" yml/csi-sync.yaml
+sed -i "s/<Cluster RG Name>/$resourcegroupName/g" yml/csi-sync.yaml
+sed -i "s/<Subscription ID>/$subscriptionId/g" yml/csi-sync.yaml
+sed -i "s/<Keyvault Name>/$keyvaultName/g" yml/csi-sync.yaml
 kubectl apply -f yml/csi-sync.yaml
 
 # Create API
+sed -i "s/<identity name created>/$identityName/g" yml/backend.yaml
+sed -i "s/<Backend image built>/$registryHost\/conexp\/api:latest/g" yml/backend.yaml
+sed -i "s/<Keyvault Name>/$keyvaultName/g" yml/backend.yaml
 kubectl apply -f yml/backend.yaml
 
 # Create frontend
+sed -i "s/<identity name created>/$identityName/g" yml/frontend.yaml
+sed -i "s/<frontend image built>/$registryHost\/conexp\/web:latest/g" yml/frontend.yaml
+sed -i "s/<Keyvault Name>/$keyvaultName/g" yml/frontend.yaml
+sed -i "s/<Queue Name>/$queueName/g" yml/frontend.yaml
 kubectl apply -f yml/frontend.yaml
 
 # Create ingress resource
+sed -i "s/<custom domain name>/$domainName/g" yml/ingress.yaml
 kubectl apply -f yml/ingress.yaml
 
 # Create KEDA function
+sed -i "s/<identity name created>/$identityName/g" yml/function.yaml
+sed -i "s/<function image built>/$registryHost\/conexp\/emaildispatcher:latest/g" yml/function.yaml
+sed -i "s/<Queue Name>/$queueName/g" yml/function.yaml
 kubectl apply -f yml/function.yaml
 
 ```
@@ -318,13 +335,13 @@ kubectl apply -f yml/function.yaml
 
 ```bash
 # Get Resource Group ID
-groupId=$(az group show --name $RG --query id -o tsv)
+groupId=$(az group show --name $resourcegroupName --query id -o tsv)
 
 # Create Service Principal and save the output
 az ad sp create-for-rbac --scope $groupId --role Contributor --sdk-auth
 
 # Get ACR ID
-registryId=$(az acr show --name $ACR --query id --output tsv)
+registryId=$(az acr show --name $acrName --query id --output tsv)
 
 # Assign ACR Push role
 az role assignment create \

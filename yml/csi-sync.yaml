@@ -17,7 +17,7 @@ spec:
   parameters:
     usePodIdentity: "true"
     userAssignedIdentityID: ""
-    keyvaultName: "<identity name created>"
+    keyvaultName: "<Keyvault Name>"
     objects: |
       array:
         - |
