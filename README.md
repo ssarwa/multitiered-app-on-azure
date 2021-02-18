@@ -246,6 +246,8 @@ INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterNa
 INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (2, 'ssarwa@microsoft.com', 'ssarwa@microsoft.com','456C14');
 INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (3, 'ssarwa@microsoft.com', 'ssarwa@microsoft.com','456C14');
 
+# Verify records
+SELECT * FROM CostCenters;
 quit
 ```
 

@@ -1,0 +1,285 @@
+<h2>Overview</h2>
+<p>This article demonstrates a multi-tiered application to Azure Kubernetes Service deployment with Managed Azure Services and workflow automation</p>
+<h2>&nbsp;</h2>
+<h2>Architecture</h2>
+<h2><li-image width="999" height="654" alt="Architecture.jpg" align="inline" id="254664i362AE04AE08F2F66" size="large" sourceType="new"></li-image></h2>
+<h2>&nbsp;</h2>
+<h2>Setup</h2>
+<p>We will create and setup the infrastructure including the following services:</p>
+<ol>
+<li>Azure Container Registry for storing images</li>
+<li>AAD Enabled, Managed AKS Cluster with the below addons and components
+<ol>
+<li>Application Gateway Ingress Controller Addon</li>
+<li>Monitoring Addon</li>
+<li>LetsEncrypt for Certificate authority</li>
+<li>KEDA runtime for Azure Functions on Kubernetes clusters</li>
+<li>Open Service Mesh</li>
+</ol>
+</li>
+<li>Github repository with Github Actions</li>
+<li>Azure Database for MySQL Service</li>
+<li>DNS Zone for custom domain</li>
+<li>SendGrid Account for email service</li>
+</ol>
+<h3>&nbsp;</h3>
+<h3>Cluster Creation</h3>
+<h4>Initialize variables</h4>
+<pre><code class="language-bash"># Add variables (sample values below change as required)
+resourcegroupName='CNCF-Azure-RG'
+clusterName='myaksCluster'
+location='westus'
+appGtwyName='AKSAppGtwy'
+acrName='cncfazure'
+domainName='sarwascloud.com'
+mysqlSvr='expensedbserver'
+adminUser='expenseadmin'
+mysqlPwd=''
+keyvaultName='expensesvault'
+# Must be lower case
+identityName='exppoidentity'
+storageAcc='expensesqueue'
+queueName='contosoexpenses'
+subscriptionId='12bb4e89-4f7a-41e0-a38f-b22f079448b4'
+tenantId='72f988bf-86f1-41af-91ab-3d7cd011db47'
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Login to Azure</h4>
+<pre><code class="language-bash">az login
+az account set -s $subscriptionId
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Register to AKS preview features</h4>
+<pre><code class="language-bash"># Follow https://docs.microsoft.com/en-us/azure/aks/use-azure-ad-pod-identity
+az feature register --name EnablePodIdentityPreview --namespace Microsoft.ContainerService
+az provider register -n Microsoft.ContainerService
+az extension add --name aks-preview
+az extension update --name aks-preview
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Create Resource Group</h4>
+<pre><code class="language-bash">az group create --name $resourcegroupName --location $location
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Create ACR</h4>
+<pre><code class="language-bash">az acr create --resource-group $resourcegroupName --name $acrName --sku Standard
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Get Object ID of the AAD Group (create AAD Group and add the members, in this case: fta-cncf-azure)</h4>
+<pre><code class="language-bash">objectId=$(az ad group list --filter "displayname eq 'fta-cncf-azure'" --query '[].objectId' -o tsv)
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Create an AKS-managed Azure AD cluster with AGIC addon and AAD Pod Identity</h4>
+<pre><code class="language-bash">az aks create \
+    -n $clusterName \
+    -g $resourcegroupName \
+    --network-plugin azure \
+    --enable-managed-identity \
+    -a ingress-appgw --appgw-name $appGtwyName \
+    --appgw-subnet-cidr "10.2.0.0/16" \
+    --enable-aad \
+    --enable-pod-identity \
+    --enable-addons monitoring \
+    --aad-admin-group-object-ids $objectId \
+    --generate-ssh-keys \
+    --attach-acr $acrName
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Add Public IP to custom domain</h4>
+<pre><code class="language-bash"># Get Node Resource Group
+nodeRG=$(az aks show --resource-group $resourcegroupName --name $clusterName --query nodeResourceGroup -o tsv)
+
+# Get Public IP created by App Gtwy in AKS created cluster
+appIP=$(az network public-ip show -g $nodeRG -n $appGtwyName-appgwpip --query ipAddress -o tsv)
+
+# Create DNS zone 
+az network dns zone create -g $resourcegroupName -n $domainName
+
+# Once created, add Nameservers in the domain provider (eg go daddy, may take sometime to update the name servers)
+az network dns record-set a add-record --resource-group $resourcegroupName --zone-name $domainName --record-set-name "aks" --ipv4-address $appIP</code></pre>
+<h3><font size="3">For more details see the tutorial on registering custom domain: <a href="https://docs.microsoft.com/en-us/azure/dns/dns-delegate-domain-azure-dns" target="_blank" rel="noopener">https://docs.microsoft.com/en-us/azure/dns/dns-delegate-domain-azure-dns</a>&nbsp;</font></h3>
+<h3>Connect to the Cluster</h3>
+<h4>Merge Kubeconfig</h4>
+<pre><code class="language-bash">az aks get-credentials --resource-group $resourcegroupName --name $clusterName --admin
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Install Cert Manager</h4>
+<pre><code class="language-bash"># Install the CustomResourceDefinition resources separately
+# Note: --validate=false is required per https://github.com/jetstack/cert-manager/issues/2208#issuecomment-541311021
+kubectl apply -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.13/deploy/manifests/00-crds.yaml --validate=false
+
+kubectl create namespace cert-manager
+kubectl label namespace cert-manager cert-manager.io/disable-validation=true
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+helm install cert-manager --namespace cert-manager --version v0.13.0 jetstack/cert-manager
+kubectl apply -f yml/clusterissuer.yaml
+
+# Test a sample application. The below command will deploy a Pod, Service and Ingress resource. Application Gateway will be configured with the associated rules.
+kubectl apply -f yml/Test-App-Ingress.yaml
+
+# Clean up after successfully verifying AGIC
+kubectl delete -f yml/Test-App-Ingress.yaml
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Install OSM Service Mesh (To-do, skip this section for now)</h4>
+<pre><code class="language-bash"># Install OSM on local using https://github.com/openservicemesh/osm#install-osm
+# Install OSM on Kubernetes
+osm install --mesh-name exp-osm
+
+# Enable OSM on the namespace. Enables sidecar injection
+osm namespace add default
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Install KEDA runtime</h4>
+<pre><code class="language-bash">helm repo add kedacore https://kedacore.github.io/charts
+helm repo update
+kubectl create namespace keda
+helm install keda kedacore/keda --namespace keda
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Install CSI Provider for Azure KeyVault</h4>
+<pre><code class="language-bash">helm repo add csi-secrets-store-provider-azure https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/charts
+helm repo update
+kubectl create namespace csi
+helm install csi csi-secrets-store-provider-azure/csi-secrets-store-provider-azure --namespace csi
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Assign managed identity</h4>
+<pre><code class="language-bash">clientId=$(az aks show -n $clusterName -g $resourcegroupName --query identityProfile.kubeletidentity.clientId -o tsv)
+scope=$(az group show -g $nodeRG --query id -o tsv)
+az role assignment create --role "Managed Identity Operator" --assignee $clientId --scope $scope
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Create Azure KeyVault for saving secrets and assign identity</h4>
+<pre><code class="language-bash">az keyvault create --location $location --name $keyvaultName --resource-group $resourcegroupName
+kvscope=$(az keyvault show -g $resourcegroupName -n $keyvaultName --query id -o tsv)
+az identity create -g $resourcegroupName -n $identityName
+idClientid=$(az identity show -n $identityName -g $resourcegroupName --query clientId -o tsv)
+idPincipalid=$(az identity show -n $identityName -g $resourcegroupName --query principalId -o tsv)
+identityId=$(az identity show -n $identityName -g $resourcegroupName --query id -o tsv)
+az role assignment create --role "Reader" --assignee $idPincipalid --scope $kvscope
+<br /># Set permissions
+az keyvault set-policy -n $KeyVault --secret-permissions get --spn $idClientid
+<br /># Add Pod Identity
+az aks pod-identity add --resource-group $resourcegroupName --cluster-name $clusterName --namespace default --name $identityName --identity-resource-id $identityId
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Create MySQL managed service (basic sku) and add Kubernetes Load Balancer's public ip in it firewall rules</h4>
+<pre><code class="language-bash">aksPublicIpName=$(az network lb show -n kubernetes -g $nodeRG --query "frontendIpConfigurations[0].name" -o tsv)
+aksPublicIpAddress=$(az network public-ip show -n $aksPublicIpName -g $nodeRG --query ipAddress -o tsv)
+az mysql server create --resource-group $resourcegroupName --name $mysqlSvr --location $location --admin-user $adminUser --admin-password $mysqlPwd --sku-name B_Gen5_2
+az mysql server firewall-rule create --name allowip --resource-group $resourcegroupName --server-name $mysqlSvr --start-ip-address $aksPublicIpAddress --end-ip-address $aksPublicIpAddress
+az mysql server firewall-rule create --name devbox --resource-group $resourcegroupName --server-name $mysqlSvr --start-ip-address &lt;Dev station ip&gt; --end-ip-address &lt;Dev station ip&gt;
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Login to MySQL (you may need to add you ip to firewall rules as well)</h4>
+<pre><code class="language-bash">mysql -h $mysqlSvr.mysql.database.azure.com -u $adminUser@$mysqlSvr -p
+show databases;
+
+CREATE DATABASE conexpweb;
+
+CREATE DATABASE conexpapi;
+USE conexpapi;
+
+CREATE TABLE CostCenters(
+   CostCenterId int(11)  NOT NULL,
+   SubmitterEmail text NOT NULL,
+   ApproverEmail text NOT NULL,
+   CostCenterName text NOT NULL,
+   PRIMARY KEY ( CostCenterId )
+);
+
+# Insert example records
+INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (1, 'ssarwa@microsoft.com', 'ssarwa@microsoft.com','123E42');
+INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (2, 'ssarwa@microsoft.com', 'ssarwa@microsoft.com','456C14');
+INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (3, 'ssarwa@microsoft.com', 'ssarwa@microsoft.com','456C14');
+<br /># Verify Records<br />SELECT * FROM CostCenters;<br />
+quit
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Create Storage queue</h4>
+<pre><code class="language-bash">az storage account create -n $storageAcc -g $resourcegroupName -l $location --sku Standard_LRS
+az storage queue create -n $queueName --account-name $storageAcc
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Add corresponding secrets to the create KeyVault</h4>
+<ol>
+<li>MySQL Connection strings (choose ADO.NET) - both for API and Web
+<ol>
+<li>mysqlconnapi</li>
+<li>mysqlconnweb</li>
+</ol>
+</li>
+<li>Storage Connection strings
+<ol>
+<li>storageconn</li>
+</ol>
+</li>
+<li>Sendgrid Key
+<ol>
+<li>sendgridapi</li>
+</ol>
+</li>
+</ol>
+<pre><code class="language-bash">az keyvault secret set --vault-name $KeyVault --name mysqlconnapi --value '&lt;replace&gt;Connection strings for MySQL API connection&lt;/replace&gt;'
+az keyvault secret set --vault-name $KeyVault --name mysqlconnweb --value '&lt;replace&gt;Connection strings for MySQL Web connection&lt;/replace&gt;'
+az keyvault secret set --vault-name $KeyVault --name storageconn --value '&lt;replace&gt;Connection strings for Storage account&lt;/replace&gt;'
+az keyvault secret set --vault-name $KeyVault --name sendgridapi --value '&lt;replace&gt;Sendgrid Key&lt;/replace&gt;'
+az keyvault secret set --vault-name $KeyVault --name funcruntime --value 'dotnet'
+</code></pre>
+<h4>&nbsp;</h4>
+<h4>Application Deployment</h4>
+<pre><code class="language-bash"># Clone the repo
+git clone https://github.com/ssarwa/cncf-azure.git
+registryHost=$(az acr show -n $acrName --query loginServer -o tsv)
+
+az acr login -n $acrName
+
+cd source/Contoso.Expenses.API
+docker build -t $registryHost/conexp/api:latest .
+docker push $registryHost/conexp/api:latest
+
+cd ..
+docker build -t $registryHost/conexp/web:latest -f Contoso.Expenses.Web/Dockerfile .
+docker push $registryHost/conexp/web:latest
+
+docker build -t $registryHost/conexp/emaildispatcher:latest -f Contoso.Expenses.KedaFunctions/Dockerfile .
+docker push $registryHost/conexp/emaildispatcher:latest
+
+cd ..
+
+# Update yamls files and change identity name, keyvault name, queue name and image used refer values between &lt;&gt; in all files
+# Create CSI Provider Class
+# Use gsed for MacOS
+sed -i "s/&lt;Tenant ID&gt;/$tenantId/g" yml/csi-sync.yaml
+sed -i "s/&lt;Cluster RG Name&gt;/$resourcegroupName/g" yml/csi-sync.yaml
+sed -i "s/&lt;Subscription ID&gt;/$subscriptionId/g" yml/csi-sync.yaml
+sed -i "s/&lt;Keyvault Name&gt;/$keyvaultName/g" yml/csi-sync.yaml
+kubectl apply -f yml/csi-sync.yaml
+
+# Create API
+sed -i "s/&lt;identity name created&gt;/$identityName/g" yml/backend.yaml
+sed -i "s/&lt;Backend image built&gt;/$registryHost\/conexp\/api:latest/g" yml/backend.yaml
+sed -i "s/&lt;Keyvault Name&gt;/$keyvaultName/g" yml/backend.yaml
+kubectl apply -f yml/backend.yaml
+
+# Create frontend
+sed -i "s/&lt;identity name created&gt;/$identityName/g" yml/frontend.yaml
+sed -i "s/&lt;frontend image built&gt;/$registryHost\/conexp\/web:latest/g" yml/frontend.yaml
+sed -i "s/&lt;Keyvault Name&gt;/$keyvaultName/g" yml/frontend.yaml
+sed -i "s/&lt;Queue Name&gt;/$queueName/g" yml/frontend.yaml
+kubectl apply -f yml/frontend.yaml
+
+# Create ingress resource
+sed -i "s/&lt;custom domain name&gt;/$domainName/g" yml/ingress.yaml
+kubectl apply -f yml/ingress.yaml
+
+# Create KEDA function
+sed -i "s/&lt;identity name created&gt;/$identityName/g" yml/function.yaml
+sed -i "s/&lt;function image built&gt;/$registryHost\/conexp\/emaildispatcher:latest/g" yml/function.yaml
+sed -i "s/&lt;Queue Name&gt;/$queueName/g" yml/function.yaml
+kubectl apply -f yml/function.yaml
+</code></pre>
+<p>Browse the application URL: <a href="https://aks.yourcustomdomain.com" target="_blank" rel="noopener">https://aks.yourcustomdomain.com</a></p>
+<p>&nbsp;</p>
