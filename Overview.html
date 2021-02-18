@@ -98,6 +98,7 @@ az network dns zone create -g $resourcegroupName -n $domainName
 # Once created, add Nameservers in the domain provider (eg go daddy, may take sometime to update the name servers)
 az network dns record-set a add-record --resource-group $resourcegroupName --zone-name $domainName --record-set-name "aks" --ipv4-address $appIP</code></pre>
 <h3><font size="3">For more details see the tutorial on registering custom domain: <a href="https://docs.microsoft.com/en-us/azure/dns/dns-delegate-domain-azure-dns" target="_blank" rel="noopener">https://docs.microsoft.com/en-us/azure/dns/dns-delegate-domain-azure-dns</a>&nbsp;</font></h3>
+<h3>&nbsp;</h3>
 <h3>Connect to the Cluster</h3>
 <h4>Merge Kubeconfig</h4>
 <pre><code class="language-bash">az aks get-credentials --resource-group $resourcegroupName --name $clusterName --admin
