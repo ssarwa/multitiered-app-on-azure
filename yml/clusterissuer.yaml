@@ -5,7 +5,7 @@ metadata:
 spec:
   acme:
     server: https://acme-staging-v02.api.letsencrypt.org/directory
-    email: ssarwa@microsoft.com
+    email: <update your email address>
     privateKeySecretRef:
       name: letsencrypt-secret
     solvers:
