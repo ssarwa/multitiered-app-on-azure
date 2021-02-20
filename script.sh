@@ -14,7 +14,6 @@ keyvaultName='expensesvault'
 # Must be lower case
 identityName='expidentity'
 storageAcc='expensesqueue'
-queueName='contosoexpenses'
 subscriptionId='12bb4e89-4f7a-41e0-a38f-b22f079248b4'
 tenantId='72f988bf-86f1-41af-91ab-2d7cd011db47'
 
@@ -169,7 +168,7 @@ quit
 
 # Create Storage queue
 az storage account create -n $storageAcc -g $resourcegroupName -l $location --sku Standard_LRS
-az storage queue create -n $queueName --account-name $storageAcc
+az storage queue create -n contosoexpenses --account-name $storageAcc
 
 # Add corresponding secrets to the create KeyVault
 
@@ -224,7 +223,6 @@ kubectl apply -f yml/backend.yaml
 gsed -i "s/<identity name created>/$identityName/g" yml/frontend.yaml
 gsed -i "s/<frontend image built>/$registryHost\/conexp\/web:latest/g" yml/frontend.yaml
 gsed -i "s/<Keyvault Name>/$keyvaultName/g" yml/frontend.yaml
-gsed -i "s/<Queue Name>/$queueName/g" yml/frontend.yaml
 kubectl apply -f yml/frontend.yaml
 
 # Create ingress resource
@@ -234,7 +232,6 @@ kubectl apply -f yml/ingress.yaml
 # Create KEDA function
 gsed -i "s/<identity name created>/$identityName/g" yml/function.yaml
 gsed -i "s/<function image built>/$registryHost\/conexp\/emaildispatcher:latest/g" yml/function.yaml
-gsed -i "s/<Queue Name>/$queueName/g" yml/function.yaml
 kubectl apply -f yml/function.yaml
 
 # Watch all pods are up and running

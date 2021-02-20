@@ -41,6 +41,6 @@ spec:
     metadata:
       type: queueTrigger
       connectionFromEnv: AzureWebJobsStorage
-      queueName: <Queue Name>
+      queueName: contosoexpenses
 ---
 
