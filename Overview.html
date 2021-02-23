@@ -44,7 +44,7 @@ tenantId='72f988bf-86f1-41af-91ab-3d7cd011db47'
 </code></pre>
 <h4>&nbsp;</h4>
 <h4>Clone repository</h4>
-<pre><code class="language-bash">git clone https://github.com/ssarwa/cncf-azure.git
+<pre><code class="language-bash">git clone https://github.com/ssarwa/multitiered-app-on-azure
 cd cncf-azure
 </code></pre>
 <h4>&nbsp;</h4>
@@ -238,8 +238,7 @@ az keyvault secret set --vault-name $keyvaultName --name funcruntime --value 'do
 </code></pre>
 <h4>&nbsp;</h4>
 <h4>Application Deployment</h4>
-<pre><code class="language-bash"># Clone the repo
-git clone https://github.com/ssarwa/cncf-azure.git
+<pre><code class="language-bash">
 registryHost=$(az acr show -n $acrName --query loginServer -o tsv)
 
 az acr login -n $acrName

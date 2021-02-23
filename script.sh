@@ -18,7 +18,7 @@ subscriptionId='12bb4e89-4f7a-41e0-a38f-b22f079248b4'
 tenantId='72f988bf-86f1-41af-91ab-2d7cd011db47'
 
 # Clone the repo
-git clone https://github.com/ssarwa/cncf-azure.git
+git clone https://github.com/ssarwa/multitiered-app-on-azure
 cd cncf-azure
 
 # Login to Azure
