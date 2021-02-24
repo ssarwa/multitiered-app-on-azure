@@ -34,7 +34,7 @@ We will create and setup the infrastructure including the following services:
 git clone https://github.com/ssarwa/multitiered-app-on-azure
 cd multitiered-app-on-azure
 
-# You could use script.sh as your working file. Don't run the script as is!
+# You could use script.azcli as your working file. Don't run the script as is!
 ```
 
 #### Initialize variables
