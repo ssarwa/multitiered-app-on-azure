@@ -19,7 +19,7 @@ tenantId='72f988bf-86f1-41af-91ab-2d7cd011db47'
 
 # Clone the repo
 git clone https://github.com/ssarwa/multitiered-app-on-azure
-cd cncf-azure
+cd multitiered-app-on-azure
 
 # Login to Azure
 az login

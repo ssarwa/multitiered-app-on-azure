@@ -28,6 +28,15 @@ We will create and setup the infrastructure including the following services:
 
 ### Cluster Creation
 
+#### Clone the repo
+
+```bash
+git clone https://github.com/ssarwa/multitiered-app-on-azure
+cd multitiered-app-on-azure
+
+# You could use script.sh as your working file. Don't run the script as is!
+```
+
 #### Initialize variables
 
 ```bash
@@ -47,13 +56,6 @@ identityName='exppoidentity'
 storageAcc='expensesqueue'
 subscriptionId='12bb4e89-4f7a-41e0-a38f-b22f079248b4'
 tenantId='72f988bf-86f1-41af-91ab-2d7cd011db47'
-```
-
-#### Clone the repo
-
-```bash
-git clone https://github.com/ssarwa/multitiered-app-on-azure
-cd cncf-azure
 ```
 
 #### Login to Azure
