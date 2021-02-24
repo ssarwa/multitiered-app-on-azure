@@ -38,6 +38,8 @@ location='westus'
 appGtwyName='AKSAppGtwy'
 acrName='cncfazure'
 domainName='sarwascloud.com'
+dnsRG='dns-rg'
+subDomain='expense'
 mysqlSvr='expensedbserver'
 adminUser='expenseadmin'
 mysqlPwd=''
@@ -70,8 +72,10 @@ az extension update --name aks-preview
 <pre><code class="language-bash">az acr create --resource-group $resourcegroupName --name $acrName --sku Standard
 </code></pre>
 <h4>&nbsp;</h4>
-<h4>Get Object ID of the AAD Group (create AAD Group and add the members, in this case: fta-cncf-azure)</h4>
-<pre><code class="language-bash">objectId=$(az ad group list --filter "displayname eq 'fta-cncf-azure'" --query '[].objectId' -o tsv)
+<h4>Get Object ID of the AAD Group (create AAD Group and add the members, in this case: expenses-ad-azure)</h4>
+<h3><font size="3">This group is needed as admin group for the cluster to grant cluster admin permissions. You can use an existing Azure AD group, or create a new one. Record the object ID of your Azure AD group.</font></h3>
+<pre><code class="language-bash">az ad group create --display-name expenses-ad-azure --mail-nickname expenses-ad-azure --description 'Group for Managing AAD based AKS cluster'
+objectId=$(az ad group list --filter "displayname eq 'expenses-ad-azure'" --query '[].objectId' -o tsv)
 </code></pre>
 <h4>&nbsp;</h4>
 <h4>Create an AKS-managed Azure AD cluster with AGIC addon and AAD Pod Identity</h4>
@@ -99,11 +103,11 @@ nodeRG=$(az aks show --resource-group $resourcegroupName --name $clusterName --q
 # Get Public IP created by App Gtwy in AKS created cluster
 appIP=$(az network public-ip show -g $nodeRG -n $appGtwyName-appgwpip --query ipAddress -o tsv)
 
-# Create DNS zone 
-az network dns zone create -g $resourcegroupName -n $domainName
+# Create DNS zone, if not created
+az network dns zone create -g $dnsRG -n $domainName
 
 # Once created, add Nameservers in the domain provider (eg go daddy, may take sometime to update the name servers)
-az network dns record-set a add-record --resource-group $resourcegroupName --zone-name $domainName --record-set-name "aks" --ipv4-address $appIP</code></pre>
+az network dns record-set a add-record --resource-group $resourcegroupName --zone-name $domainName --record-set-name $subDomain --ipv4-address $appIP</code></pre>
 <h3><font size="3">For more details see the tutorial on registering custom domain: <a href="https://docs.microsoft.com/en-us/azure/dns/dns-delegate-domain-azure-dns" target="_blank" rel="noopener">https://docs.microsoft.com/en-us/azure/dns/dns-delegate-domain-azure-dns</a>&nbsp;</font></h3>
 <h3>&nbsp;</h3>
 <h3>Connect to the Cluster</h3>
@@ -125,6 +129,7 @@ kubectl apply -f yml/clusterissuer.yaml
 
 # Test a sample application. The below command will deploy a Pod, Service and Ingress resource. Application Gateway will be configured with the associated rules.
 sed -i "s/<custom domain name>/$domainName/g" yml/Test-App-Ingress.yaml
+sed -i "s/<Sub Domain>/$subDomain/g" yml/Test-App-Ingress.yaml
 kubectl apply -f yml/Test-App-Ingress.yaml
 
 # Clean up after successfully verifying AGIC
@@ -280,6 +285,7 @@ kubectl apply -f yml/frontend.yaml
 
 # Create ingress resource
 sed -i "s/&lt;custom domain name&gt;/$domainName/g" yml/ingress.yaml
+sed -i "s/<Sub Domain>/$subDomain/g" yml/ingress.yaml
 kubectl apply -f yml/ingress.yaml
 
 # Create KEDA function
@@ -287,5 +293,5 @@ sed -i "s/&lt;identity name created&gt;/$identityName/g" yml/function.yaml
 sed -i "s/&lt;function image built&gt;/$registryHost\/conexp\/emaildispatcher:latest/g" yml/function.yaml
 kubectl apply -f yml/function.yaml
 </code></pre>
-<p>Browse the application URL: <a href="https://aks.yourcustomdomain.com" target="_blank" rel="noopener">https://aks.yourcustomdomain.com</a></p>
+<p>Browse the application URL: <a href="https://subdomain.yourcustomdomain.com" target="_blank" rel="noopener">https://subdomain.yourcustomdomain.com</a></p>
 <p>&nbsp;</p>

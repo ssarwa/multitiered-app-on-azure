@@ -44,10 +44,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - <custom domain name>
+    - <Sub Domain>.<custom domain name>
     secretName: letsencrypt-tls
   rules:
-  - host: <custom domain name>
+  - host: <Sub Domain>.<custom domain name>
     http:
       paths:
       - path: /
