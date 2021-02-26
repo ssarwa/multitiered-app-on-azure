@@ -39,7 +39,7 @@ metadata:
   name: aspnetapp-ing
   annotations:
     kubernetes.io/ingress.class: azure/application-gateway
-    cert-manager.io/cluster-issuer: letsencrypt-staging
+    cert-manager.io/cluster-issuer: letsencrypt-prod
     cert-manager.io/acme-challenge-type: http01
 spec:
   tls:
