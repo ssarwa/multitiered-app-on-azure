@@ -16,7 +16,7 @@ namespace Contoso.Expenses.KedaFunctions
         {
             Expense expense = JsonConvert.DeserializeObject<Expense>(expenseItem);
 
-            string emailFrom = "ssarwa@microsoft.com";
+            string emailFrom = expense.SubmitterEmail;
             string emailTo = expense.ApproverEmail;
             string emailSubject = $"New Expense for the amount of ${expense.Amount} submitted";
             string emailBody = $"Hello {expense.ApproverEmail}, <br/> New Expense report submitted for the purpose of: {expense.Purpose}. <br/> Please review as soon as possible. <br/> <br/> <br/> This is a auto generated email, please do not reply to this email";

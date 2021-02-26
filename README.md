@@ -219,11 +219,11 @@ az identity create -g $resourcegroupName -n $identityName
 
 idClientid=$(az identity show -n $identityName -g $resourcegroupName --query clientId -o tsv)
 
-idPincipalid=$(az identity show -n $identityName -g $resourcegroupName --query principalId -o tsv)
+idPrincipalid=$(az identity show -n $identityName -g $resourcegroupName --query principalId -o tsv)
 
 identityId=$(az identity show -n $identityName -g $resourcegroupName --query id -o tsv)
 
-az role assignment create --role "Reader" --assignee $idPincipalid --scope $kvscope
+az role assignment create --role "Reader" --assignee $idPrincipalid --scope $kvscope
 
 az keyvault set-policy -n $keyvaultName --secret-permissions get --spn $idClientid
 
@@ -237,12 +237,14 @@ aksPublicIpName=$(az network lb show -n kubernetes -g $nodeRG --query "frontendI
 aksPublicIpAddress=$(az network public-ip show -n $aksPublicIpName -g $nodeRG --query ipAddress -o tsv)
 az mysql server create --resource-group $resourcegroupName --name $mysqlSvr --location $location --admin-user $adminUser --admin-password $mysqlPwd --sku-name B_Gen5_2
 az mysql server firewall-rule create --name allowip --resource-group $resourcegroupName --server-name $mysqlSvr --start-ip-address $aksPublicIpAddress --end-ip-address $aksPublicIpAddress
+
+# Replace <Dev station ip> with your Local Machine IP. You can use: https://www.whatsmyip.org/
 az mysql server firewall-rule create --name devbox --resource-group $resourcegroupName --server-name $mysqlSvr --start-ip-address <Dev station ip> --end-ip-address <Dev station ip>
 ```
 
 #### Login to MySQL (you may need to add you ip to firewall rules as well)
 
-Install MySQL here: https://dev.mysql.com/doc/mysql-installation-excerpt/5.7/en/installing.html
+Install MySQL Client your your local dev box: sudo apt install mysql-client-core-8.0
 
 ```bash
 mysql -h $mysqlSvr.mysql.database.azure.com -u $adminUser@$mysqlSvr -p
@@ -276,6 +278,7 @@ quit
 ```bash
 az storage account create -n $storageAcc -g $resourcegroupName -l $location --sku Standard_LRS
 
+# Do not change queue name of contosoexpenses. KedaFunction queue trigger relies on this queue name.
 az storage queue create -n contosoexpenses --account-name $storageAcc
 ```
 
@@ -293,6 +296,7 @@ az storage queue create -n contosoexpenses --account-name $storageAcc
 az keyvault secret set --vault-name $keyvaultName --name mysqlconnapi --value '<replace>Connection strings for MySQL API connection</replace>'
 az keyvault secret set --vault-name $keyvaultName --name mysqlconnweb --value '<replace>Connection strings for MySQL Web connection</replace>'
 az keyvault secret set --vault-name $keyvaultName --name storageconn --value '<replace>Connection strings for Storage account</replace>'
+# Make sure to register for free SendGrid Account and verify identity. [Visit Sendgrid](https://sendgrid.com).
 az keyvault secret set --vault-name $keyvaultName --name sendgridapi --value '<replace>Sendgrid Key</replace>'
 az keyvault secret set --vault-name $keyvaultName --name funcruntime --value 'dotnet'
 ```
@@ -348,6 +352,8 @@ sed -i "s/<identity name created>/$identityName/g" yml/function.yaml
 sed -i "s/<function image built>/$registryHost\/conexp\/emaildispatcher:latest/g" yml/function.yaml
 kubectl apply -f yml/function.yaml
 ```
+
+Once the ingress controller updates with new frontend deployed it may take a min for Application gateway to update.
 
 #### Prepare Github Actions
 
