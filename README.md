@@ -2,9 +2,8 @@
 
 ## Overview
 
-This article demonstrates a multi-tiered application to Azure Kubernetes Service deployment with Managed Azure Services and workflow automation.
-
-Note that the below features are still in preview so it is NOT recommended for production workloads yet!!
+This blog demonstrates a multi-tier application deployment on to Azure Kubernetes Service along with several other Azure managed services such as Azure Database for MySQL, Azure Functions, etc.
+Note: There may be few features that are used in this blog such as Azure Active Directory Pod Identity are still in preview, these features are not recommended for production deployment.
 
 ## Architecture
 
@@ -20,9 +19,8 @@ We will create and setup the infrastructure including the following services:
    2. Monitoring Addon
    3. LetsEncrypt for Certificate authority
    4. KEDA runtime for Azure Functions on Kubernetes clusters
-   5. Open Service Mesh
-3. Github repository with Github Actions
-4. Azure Database for MySQL Service
+3. Azure Database for MySQL Service
+4. Azure Storage Queues
 5. DNS Zone for custom domain
 6. SendGrid Account for email service
 
@@ -167,19 +165,6 @@ kubectl apply -f yml/Test-App-Ingress.yaml
 kubectl delete -f yml/Test-App-Ingress.yaml
 ```
 
-#### Install OSM Service Mesh (To-do, skip this section for now)
-
-```bash
-# Install OSM on local using https://github.com/openservicemesh/osm#install-osm
-
-# Install OSM on Kubernetes
-osm install --mesh-name exp-osm
-
-# Enable OSM on the namespace. Enables sidecar injection
-osm namespace add default
-
-```
-
 #### Install KEDA runtime
 
 ```bash
@@ -264,9 +249,9 @@ CREATE TABLE CostCenters(
 );
 
 # Insert example records
-INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (1, 'ssarwa@microsoft.com', 'ssarwa@microsoft.com','123E42');
-INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (2, 'ssarwa@microsoft.com', 'ssarwa@microsoft.com','456C14');
-INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (3, 'ssarwa@microsoft.com', 'ssarwa@microsoft.com','456C14');
+INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (1, 'submitter@email.com', 'approver@email.com','123E42');
+INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (2, 'submitter@email.com', 'approver@email.com','456C14');
+INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (3, 'submitter@email.com', 'approver@email.com','789A28');
 
 # Verify records
 SELECT * FROM CostCenters;
@@ -354,24 +339,3 @@ kubectl apply -f yml/function.yaml
 ```
 
 Once the ingress controller updates with new frontend deployed it may take a min for Application gateway to update.
-
-#### Prepare Github Actions
-
-```bash
-# Get Resource Group ID
-groupId=$(az group show --name $resourcegroupName --query id -o tsv)
-
-# Create Service Principal and save the output
-az ad sp create-for-rbac --scope $groupId --role Contributor --sdk-auth
-
-# Get ACR ID
-registryId=$(az acr show --name $acrName --query id --output tsv)
-
-# Assign ACR Push role
-az role assignment create \
-  --assignee <ClientId> \
-  --scope $registryId \
-  --role AcrPush
-
-# Now you are ready to trigger the build and release from Github Actions using the provided Actions file.
-```

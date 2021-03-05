@@ -167,9 +167,9 @@ CREATE TABLE CostCenters(
 );
 
 # Insert example records
-INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (1, 'ssarwa@microsoft.com', 'ssarwa@microsoft.com','123E42');
-INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (2, 'ssarwa@microsoft.com', 'ssarwa@microsoft.com','456C14');
-INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (3, 'ssarwa@microsoft.com', 'ssarwa@microsoft.com','456C14');
+INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (1, 'submitter@email.com', 'approver@email.com','123E42');
+INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (2, 'submitter@email.com', 'approver@email.com','456C14');
+INSERT INTO CostCenters (CostCenterId, SubmitterEmail,ApproverEmail,CostCenterName)  values (3, 'submitter@email.com', 'approver@email.com','789A28');
 
 # Verify records
 SELECT * FROM CostCenters;

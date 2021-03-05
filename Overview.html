@@ -1,5 +1,6 @@
 <h2>Overview</h2>
-<p>This article demonstrates a multi-tiered application to Azure Kubernetes Service deployment with Managed Azure Services and workflow automation. Note that the below features are still in preview so it is NOT recommended for production workloads yet!!</p>
+<p>This blog demonstrates a multi-tier application deployment on to Azure Kubernetes Service along with several other Azure managed services such as&nbsp;Azure Database for MySQL, Azure Functions, etc.</p>
+<p>Note: There may be few features that are used in this blog such as Azure Active Directory Pod Identity are still in preview, these features are not recommended for&nbsp;production deployment.&nbsp;</p>
 <h2>&nbsp;</h2>
 <h2>Architecture</h2>
 <h2><li-image width="999" height="654" alt="Architecture.jpg" align="inline" id="254664i362AE04AE08F2F66" size="large" sourceType="new"></li-image></h2>
@@ -14,11 +15,10 @@
 <li>Monitoring Addon</li>
 <li>LetsEncrypt for Certificate authority</li>
 <li>KEDA runtime for Azure Functions on Kubernetes clusters</li>
-<li>Open Service Mesh</li>
 </ol>
 </li>
-<li>Github repository with Github Actions</li>
 <li>Azure Database for MySQL Service</li>
+<li>Azure Storage Queues</li>
 <li>DNS Zone for custom domain</li>
 <li>SendGrid Account for email service</li>
 </ol>
@@ -44,9 +44,9 @@ mysqlSvr='expensedbserver'
 adminUser='expenseadmin'
 mysqlPwd=''
 keyvaultName='expensesvault'
-# Must be lower case
+# Identity name must be lower case
 identityName='exppoidentity'
-# Must be globally unique
+# Storage name must be lower case and globally unique
 storageAcc='expensesqueue'
 subscriptionId='12bb4e89-4f7a-41e0-a38f-b22f079448b4'
 tenantId='72f988bf-86f1-41af-91ab-3d7cd011db47'
@@ -79,7 +79,7 @@ az extension update --name aks-preview
 objectId=$(az ad group list --filter "displayname eq 'expenses-ad-azure'" --query '[].objectId' -o tsv)
 </code></pre>
 <h4>&nbsp;</h4>
-<h4>Create an AKS-managed Azure AD cluster with AGIC addon and AAD Pod Identity</h4>
+<h4>Create an AKS-managed Azure AD cluster with AGIC add-on and AAD Pod Identity</h4>
 <pre><code class="language-bash">az aks create \
     -n $clusterName \
     -g $resourcegroupName \
@@ -129,22 +129,13 @@ helm install cert-manager --namespace cert-manager --version v0.13.0 jetstack/ce
 kubectl apply -f yml/clusterissuer.yaml
 
 # Test a sample application. The below command will deploy a Pod, Service and Ingress resource. Application Gateway will be configured with the associated rules.
-sed -i "s/<custom domain name>/$domainName/g" yml/Test-App-Ingress.yaml
-sed -i "s/<Sub Domain>/$subDomain/g" yml/Test-App-Ingress.yaml
+sed -i "s//$domainName/g" yml/Test-App-Ingress.yaml
+sed -i "s/<sub>/$subDomain/g" yml/Test-App-Ingress.yaml
 kubectl apply -f yml/Test-App-Ingress.yaml
 
 # Clean up after successfully verifying AGIC
 kubectl delete -f yml/Test-App-Ingress.yaml
-</code></pre>
-<h4>&nbsp;</h4>
-<h4>Install OSM Service Mesh (To-do, skip this section for now)</h4>
-<pre><code class="language-bash"># Install OSM on local using https://github.com/openservicemesh/osm#install-osm
-# Install OSM on Kubernetes
-osm install --mesh-name exp-osm
-
-# Enable OSM on the namespace. Enables sidecar injection
-osm namespace add default
-</code></pre>
+</sub></code></pre>
 <h4>&nbsp;</h4>
 <h4>Install KEDA runtime</h4>
 <pre><code class="language-bash">helm repo add kedacore https://kedacore.github.io/charts
@@ -186,7 +177,7 @@ aksPublicIpAddress=$(az network public-ip show -n $aksPublicIpName -g $nodeRG --
 az mysql server create --resource-group $resourcegroupName --name $mysqlSvr --location $location --admin-user $adminUser --admin-password $mysqlPwd --sku-name B_Gen5_2
 az mysql server firewall-rule create --name allowip --resource-group $resourcegroupName --server-name $mysqlSvr --start-ip-address $aksPublicIpAddress --end-ip-address $aksPublicIpAddress
 
-# Replace <Dev station ip> with your Local Machine IP. You can use: https://www.whatsmyip.org/
+# Replace  with your Local Machine IP. You can use: https://www.whatsmyip.org/
 az mysql server firewall-rule create --name devbox --resource-group $resourcegroupName --server-name $mysqlSvr --start-ip-address &lt;Dev station ip&gt; --end-ip-address &lt;Dev station ip&gt;
 </code></pre>
 <h4>&nbsp;</h4>
@@ -290,14 +281,21 @@ kubectl apply -f yml/frontend.yaml
 
 # Create ingress resource
 sed -i "s/&lt;custom domain name&gt;/$domainName/g" yml/ingress.yaml
-sed -i "s/<Sub Domain>/$subDomain/g" yml/ingress.yaml
+sed -i "s/<sub>/$subDomain/g" yml/ingress.yaml
 kubectl apply -f yml/ingress.yaml
 
 # Create KEDA function
 sed -i "s/&lt;identity name created&gt;/$identityName/g" yml/function.yaml
 sed -i "s/&lt;function image built&gt;/$registryHost\/conexp\/emaildispatcher:latest/g" yml/function.yaml
 kubectl apply -f yml/function.yaml
-</code></pre>
+</sub></code></pre>
 <p>Once the ingress controller updates with new frontend deployed it may take a min for Application gateway to update.</p>
 <p>Browse the application URL: <a href="https://subdomain.yourcustomdomain.com" target="_blank" rel="noopener">https://subdomain.yourcustomdomain.com</a></p>
+<p>&nbsp;</p>
+<h4>Next Steps</h4>
+<ul>
+<li>Implement Service Mesh (like OSM) for securing service to service communications</li>
+<li>Enabling managed identity to access MySQL and Storage services, thus removing Key Vault references</li>
+<li>Enabling Github Actions for CI/CD pipelines</li>
+</ul>
 <p>&nbsp;</p>
